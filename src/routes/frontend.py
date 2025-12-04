@@ -1,0 +1,26 @@
+import os
+from pathlib import Path
+
+from flask import Blueprint, send_from_directory
+
+frontend = Blueprint(
+    "frontend",
+    __name__,
+    static_folder=Path(os.path.abspath(__file__)).parent.parent.joinpath("frontend"),
+)
+print(str(Path(os.path.abspath(__file__)).parent.parent.joinpath("frontend")))
+
+
+@frontend.get("/scripts.js")
+def scripts():
+    return frontend.send_static_file("scripts.js")
+
+
+@frontend.get("/styles.css")
+def styles():
+    return frontend.send_static_file("styles.css")
+
+
+@frontend.route("/", methods=["GET"])
+def root():
+    return send_from_directory(frontend.static_folder, "index.html")
