@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Control</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Vehicle Control Interface</h1>
+
+        <div class="status" id="status">Ready</div>
+        <button class="small-btn" onclick="getLogs()">Get Logs</button>
+
+        <div class="test-section">
+            <h2>Automated Tests</h2>
+
+            <div class="test-card">
+                <h3>Test 1: Straight</h3>
+                <input type="number" id="speed1" placeholder="Speed" step="0.1" value="1.0">
+                <button onclick="runTest(1)">Run Straight Test</button>
+            </div>
+
+            <div class="test-card">
+                <h3>Test 2: Turn</h3>
+                <input type="number" id="speed2" placeholder="Speed" step="0.1" value="1.0">
+                <input type="number" id="steering2" placeholder="Steering" step="0.1" value="0.5">
+                <button onclick="runTest(2)">Run Turn Test</button>
+            </div>
+
+            <div class="test-card">
+                <h3>Test 3: Figure 8</h3>
+                <input type="number" id="speed3" placeholder="Speed" step="0.1" value="1.0">
+                <input type="number" id="steering3" placeholder="Steering" step="0.1" value="0.5">
+                <button onclick="runTest(3)">Run Figure 8 Test</button>
+            </div>
+        </div>
+
+        <div class="manual-section">
+            <h2>Manual Control</h2>
+            <button id="manualBtn" onclick="toggleManualMode()">Enable Manual Mode</button>
+            <div id="manualStatus" class="manual-status"></div>
+        </div>
+    </div>
+
+    <script src="scripts.js"></script>
+</body>
+</html>
