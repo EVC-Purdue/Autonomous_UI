@@ -96,9 +96,9 @@ async function sendControlCommands() {
     const endpoints = [];
 
     if (activeKeys.has('ArrowUp')) endpoints.push('/go_forward');
-    if (activeKeys.has('ArrowDown')) endpoints.push('/go_backwards');
+    else if (activeKeys.has('ArrowDown')) endpoints.push('/go_backwards');
     if (activeKeys.has('ArrowLeft')) endpoints.push('/turn_left');
-    if (activeKeys.has('ArrowRight')) endpoints.push('/turn_right');
+    else if (activeKeys.has('ArrowRight')) endpoints.push('/turn_right');
 
     for (const endpoint of endpoints) {
         try {
