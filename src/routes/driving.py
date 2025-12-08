@@ -1,3 +1,6 @@
+import json
+import os
+
 import requests
 from flask import Blueprint, jsonify, request
 
@@ -11,13 +14,15 @@ URL = "http://10.186.19.128:8001/"
 
 @driving.route("/get_data", methods=["GET"])
 def get_data():
-    res = requests.get(URL + "logs")
+    res = requests.get(URL.replace('8001', '8000') + "logs")
     if res.status_code == 200:
         data = res.json()
-
         file_path = "data.jsonl"
+        if not os.path.exists(file_path):
+            open(file_path, 'x')
         with open(file_path, "a") as f:
-            f.write(data)
+            for record in data:
+                f.write(json.dumps(record) + "\n")
     else:
         return jsonify({"error": res.text}, res.status_code)
 
