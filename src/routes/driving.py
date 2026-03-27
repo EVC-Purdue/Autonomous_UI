@@ -9,12 +9,12 @@ driving = Blueprint(
     __name__,
 )
 
-URL = "http://10.186.19.128:8001/"
+URL = "http://10.186.9.192:8000/"
 
 
 @driving.route("/get_data", methods=["GET"])
 def get_data():
-    res = requests.get(URL.replace('8001', '8000') + "logs")
+    res = requests.get(URL + "get_logs")
     if res.status_code == 200:
         data = res.json()
         file_path = "data.jsonl"
