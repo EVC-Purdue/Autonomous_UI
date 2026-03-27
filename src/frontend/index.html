@@ -8,39 +8,115 @@
 </head>
 <body>
     <div class="container">
-        <h1>Vehicle Control Interface</h1>
+        <h1>EVC Autonomous Kart</h1>
 
-        <div class="status" id="status">Ready</div>
-        <button class="small-btn" onclick="getLogs()">Get Logs</button>
-
-        <div class="test-section">
-            <h2>Automated Tests</h2>
-
-            <div class="test-card">
-                <h3>Test 1: Straight</h3>
-                <input type="number" id="speed1" placeholder="Speed" step="0.1" value="1.0">
-                <button onclick="runTest(1)">Run Straight Test</button>
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="connection-status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="connectionText">Connecting...</span>
             </div>
-
-            <div class="test-card">
-                <h3>Test 2: Turn</h3>
-                <input type="number" id="speed2" placeholder="Speed" step="0.1" value="1.0">
-                <input type="number" id="steering2" placeholder="Steering" step="0.1" value="0.5">
-                <button onclick="runTest(2)">Run Turn Test</button>
-            </div>
-
-            <div class="test-card">
-                <h3>Test 3: Figure 8</h3>
-                <input type="number" id="speed3" placeholder="Speed" step="0.1" value="1.0">
-                <input type="number" id="steering3" placeholder="Steering" step="0.1" value="0.5">
-                <button onclick="runTest(3)">Run Figure 8 Test</button>
+            <div style="font-size: 0.85em; color: var(--text-muted);">
+                <span id="apiUrl">http://127.0.0.1:8080</span>
             </div>
         </div>
 
-        <div class="manual-section">
-            <h2>Manual Control</h2>
-            <button id="manualBtn" onclick="toggleManualMode()">Enable Manual Mode</button>
-            <div id="manualStatus" class="manual-status"></div>
+        <!-- Console Log -->
+        <div class="console-section" id="consoleLog">
+            <div class="log-entry info"><span class="log-timestamp">[INIT]</span> Starting up...</div>
+        </div>
+
+        <!-- Main Grid Layout -->
+        <div class="main-grid">
+            <!-- Left Column: State & Telemetry -->
+            <div>
+                <div class="dashboard-section">
+                    <h2>State Control</h2>
+                    <div class="state-controls">
+                        <div class="state-display">
+                            <span class="label">Current State</span>
+                            <span id="currentState" class="state-badge">UNKNOWN</span>
+                        </div>
+                        <div class="state-buttons">
+                            <button onclick="setState('IDLE')" class="state-btn">IDLE</button>
+                            <button onclick="setState('MANUAL')" class="state-btn">MANUAL</button>
+                            <button onclick="setState('AUTONOMOUS')" class="state-btn">AUTO</button>
+                            <button onclick="setState('STOPPED')" class="state-btn state-btn-stop">STOP</button>
+                        </div>
+                    </div>
+
+                    <h2 style="margin-top: 15px;">Live Telemetry</h2>
+                    <div class="telemetry-grid">
+                        <div class="telemetry-card">
+                            <h3>Position</h3>
+                            <div class="telemetry-value">
+                                <span class="label">X</span>
+                                <span><span id="posX">--</span> m</span>
+                            </div>
+                            <div class="telemetry-value">
+                                <span class="label">Y</span>
+                                <span><span id="posY">--</span> m</span>
+                            </div>
+                            <div class="telemetry-value">
+                                <span class="label">Heading</span>
+                                <span><span id="yaw">--</span>°</span>
+                            </div>
+                        </div>
+
+                        <div class="telemetry-card">
+                            <h3>Velocity</h3>
+                            <div class="telemetry-value">
+                                <span class="label">Speed</span>
+                                <span><span id="speed">--</span> m/s</span>
+                            </div>
+                            <div class="telemetry-value">
+                                <span class="label">Motor</span>
+                                <span><span id="motor">--</span>%</span>
+                            </div>
+                            <div class="telemetry-value">
+                                <span class="label">Steering</span>
+                                <span id="steer">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Control -->
+                <div class="manual-section">
+                    <h2>Manual Control</h2>
+                    <button id="manualBtn" onclick="toggleManualMode()">Enable Manual Mode</button>
+                    <div id="manualStatus" class="manual-status"></div>
+                </div>
+            </div>
+
+            <!-- Right Column: Tests & Actions -->
+            <div>
+                <div class="test-section">
+                    <h2>Automated Tests</h2>
+
+                    <div class="test-card">
+                        <h3>Test 1: Straight</h3>
+                        <input type="number" id="speed1" placeholder="Speed" step="0.1" value="1.0">
+                        <button onclick="runTest(1)">Run Straight Test</button>
+                    </div>
+
+                    <div class="test-card">
+                        <h3>Test 2: Turn</h3>
+                        <input type="number" id="speed2" placeholder="Speed" step="0.1" value="1.0">
+                        <input type="number" id="steering2" placeholder="Steering" step="0.1" value="0.5">
+                        <button onclick="runTest(2)">Run Turn Test</button>
+                    </div>
+
+                    <div class="test-card">
+                        <h3>Test 3: Figure 8</h3>
+                        <input type="number" id="speed3" placeholder="Speed" step="0.1" value="1.0">
+                        <input type="number" id="steering3" placeholder="Steering" step="0.1" value="0.5">
+                        <button onclick="runTest(3)">Run Figure 8 Test</button>
+                    </div>
+
+                    <button class="small-btn" onclick="getLogs()" style="margin-top: 15px; width: 100%;">Download Telemetry Logs</button>
+                </div>
+            </div>
         </div>
     </div>
 
