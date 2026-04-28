@@ -5,7 +5,7 @@ import requests
 from flask import Blueprint, send_from_directory, request, jsonify
 
 # Kart API configuration
-KART_API_BASE = "http://10.186.9.192:8000"
+KART_API_BASE = "http://100.93.187.32:8000"
 
 frontend = Blueprint(
     "frontend",
@@ -73,6 +73,33 @@ def proxy_manual_control():
 def proxy_get_logs():
     try:
         response = requests.get(f"{KART_API_BASE}/get_logs", timeout=5)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/map", methods=["GET"])
+def proxy_map():
+    try:
+        response = requests.get(f"{KART_API_BASE}/map", timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/lines", methods=["GET"])
+def proxy_lines():
+    try:
+        response = requests.get(f"{KART_API_BASE}/lines", timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/racing_line", methods=["GET"])
+def proxy_racing_line():
+    try:
+        response = requests.get(f"{KART_API_BASE}/racing_line", timeout=3)
         return response.json(), response.status_code
     except Exception as e:
         return {"error": str(e)}, 500

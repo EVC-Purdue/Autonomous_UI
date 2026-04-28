@@ -3,121 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vehicle Control</title>
+    <title>EVC · Autonomous Racing Telemetry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>EVC Autonomous Kart</h1>
-
-        <!-- Status Bar -->
-        <div class="status-bar">
-            <div class="connection-status">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="connectionText">Connecting...</span>
-            </div>
-            <div style="font-size: 0.85em; color: var(--text-muted);">
-                <span id="apiUrl">http://127.0.0.1:8080</span>
-            </div>
-        </div>
-
-        <!-- Console Log -->
-        <div class="console-section" id="consoleLog">
-            <div class="log-entry info"><span class="log-timestamp">[INIT]</span> Starting up...</div>
-        </div>
-
-        <!-- Main Grid Layout -->
-        <div class="main-grid">
-            <!-- Left Column: State & Telemetry -->
-            <div>
-                <div class="dashboard-section">
-                    <h2>State Control</h2>
-                    <div class="state-controls">
-                        <div class="state-display">
-                            <span class="label">Current State</span>
-                            <span id="currentState" class="state-badge">UNKNOWN</span>
-                        </div>
-                        <div class="state-buttons">
-                            <button onclick="setState('IDLE')" class="state-btn">IDLE</button>
-                            <button onclick="setState('MANUAL')" class="state-btn">MANUAL</button>
-                            <button onclick="setState('AUTONOMOUS')" class="state-btn">AUTO</button>
-                            <button onclick="setState('STOPPED')" class="state-btn state-btn-stop">STOP</button>
-                        </div>
-                    </div>
-
-                    <h2 style="margin-top: 15px;">Live Telemetry</h2>
-                    <div class="telemetry-grid">
-                        <div class="telemetry-card">
-                            <h3>Position</h3>
-                            <div class="telemetry-value">
-                                <span class="label">X</span>
-                                <span><span id="posX">--</span> m</span>
-                            </div>
-                            <div class="telemetry-value">
-                                <span class="label">Y</span>
-                                <span><span id="posY">--</span> m</span>
-                            </div>
-                            <div class="telemetry-value">
-                                <span class="label">Heading</span>
-                                <span><span id="yaw">--</span>°</span>
-                            </div>
-                        </div>
-
-                        <div class="telemetry-card">
-                            <h3>Velocity</h3>
-                            <div class="telemetry-value">
-                                <span class="label">Speed</span>
-                                <span><span id="speed">--</span> m/s</span>
-                            </div>
-                            <div class="telemetry-value">
-                                <span class="label">Motor</span>
-                                <span><span id="motor">--</span>%</span>
-                            </div>
-                            <div class="telemetry-value">
-                                <span class="label">Steering</span>
-                                <span id="steer">--</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Manual Control -->
-                <div class="manual-section">
-                    <h2>Manual Control</h2>
-                    <button id="manualBtn" onclick="toggleManualMode()">Enable Manual Mode</button>
-                    <div id="manualStatus" class="manual-status"></div>
+    <div class="app">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark">EVC<span class="dot-mark"></span></div>
+                <div class="brand-sub">
+                    <span>Autonomous Racing Telemetry</span>
+                    <span class="brand-meta" id="apiUrl">Proxy mode</span>
                 </div>
             </div>
 
-            <!-- Right Column: Tests & Actions -->
-            <div>
-                <div class="test-section">
-                    <h2>Automated Tests</h2>
-
-                    <div class="test-card">
-                        <h3>Test 1: Straight</h3>
-                        <input type="number" id="speed1" placeholder="Speed" step="0.1" value="1.0">
-                        <button onclick="runTest(1)">Run Straight Test</button>
-                    </div>
-
-                    <div class="test-card">
-                        <h3>Test 2: Turn</h3>
-                        <input type="number" id="speed2" placeholder="Speed" step="0.1" value="1.0">
-                        <input type="number" id="steering2" placeholder="Steering" step="0.1" value="0.5">
-                        <button onclick="runTest(2)">Run Turn Test</button>
-                    </div>
-
-                    <div class="test-card">
-                        <h3>Test 3: Figure 8</h3>
-                        <input type="number" id="speed3" placeholder="Speed" step="0.1" value="1.0">
-                        <input type="number" id="steering3" placeholder="Steering" step="0.1" value="0.5">
-                        <button onclick="runTest(3)">Run Figure 8 Test</button>
-                    </div>
-
-                    <button class="small-btn" onclick="getLogs()" style="margin-top: 15px; width: 100%;">Download Telemetry Logs</button>
+            <div class="state-cluster">
+                <div class="state-pill" id="currentState">UNKNOWN</div>
+                <div class="state-actions">
+                    <button class="pill" data-state="IDLE" onclick="setState('IDLE')">Idle</button>
+                    <button class="pill" data-state="MANUAL" onclick="setState('MANUAL')">Manual</button>
+                    <button class="pill" data-state="AUTONOMOUS" onclick="setState('AUTONOMOUS')">Auto</button>
+                    <button class="pill pill-danger" data-state="STOPPED" onclick="setState('STOPPED')">Stop</button>
                 </div>
             </div>
-        </div>
+
+            <div class="conn">
+                <span class="status-dot" id="statusDot"></span>
+                <span class="conn-label" id="connectionText">Linking…</span>
+                <span class="hz">· <span id="rate">0</span> Hz</span>
+            </div>
+        </header>
+
+        <main class="stage">
+            <section class="map-shell">
+                <canvas id="mapCanvas"></canvas>
+
+                <div class="map-overlay map-overlay-tl">
+                    <div class="legend">
+                        <div class="legend-item"><span class="swatch swatch-static"></span>Expected line</div>
+                        <div class="legend-item"><span class="swatch swatch-dynamic"></span>Driven line</div>
+                        <div class="legend-item"><span class="swatch swatch-vehicle"></span>Vehicle</div>
+                    </div>
+                </div>
+
+                <div class="map-overlay map-overlay-tr">
+                    <button class="ghost" id="recenterBtn">Fit</button>
+                    <button class="ghost" id="trackBtn">Follow</button>
+                </div>
+
+                <div class="map-overlay map-overlay-bl">
+                    <div class="coords"><span class="lbl">x</span><span id="coordX">--</span><span class="lbl">y</span><span id="coordY">--</span></div>
+                </div>
+
+                <div class="map-overlay map-overlay-br">
+                    <div class="scale-bar"><span id="scaleLabel">— m</span><span class="bar"></span></div>
+                </div>
+            </section>
+
+            <aside class="metrics">
+                <div class="hero-metric">
+                    <div class="metric-label">Speed</div>
+                    <div class="metric-value">
+                        <span id="speed">0.00</span>
+                        <span class="unit">m/s</span>
+                    </div>
+                    <div class="metric-foot">
+                        <span><span id="speedMph">0.0</span> mph</span>
+                        <span class="dim">peak <span id="peakSpeed">0.00</span></span>
+                    </div>
+                    <div class="speed-bar"><div class="speed-fill" id="speedFill"></div></div>
+                </div>
+
+                <div class="kpi-row">
+                    <div class="kpi">
+                        <div class="lbl">Cross-track</div>
+                        <div class="val"><span id="cte">0.00</span><span class="unit">m</span></div>
+                        <div class="sub">RMS <span id="cteRms">0.00</span></div>
+                    </div>
+                    <div class="kpi">
+                        <div class="lbl">Lap progress</div>
+                        <div class="val"><span id="progress">0</span><span class="unit">%</span></div>
+                        <div class="sub">lap <span id="lapCount">1</span></div>
+                        <div class="ring"><div class="ring-fill" id="progressRing"></div></div>
+                    </div>
+                </div>
+
+                <div class="kpi-row">
+                    <div class="kpi">
+                        <div class="lbl">Heading</div>
+                        <div class="val"><span id="yaw">0</span><span class="unit">°</span></div>
+                        <div class="sub">ω <span id="wz">0.00</span> rad/s</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="lbl">Distance</div>
+                        <div class="val"><span id="distance">0.0</span><span class="unit">m</span></div>
+                        <div class="sub">of <span id="totalLen">0</span> m expected</div>
+                    </div>
+                </div>
+
+                <div class="kpi block">
+                    <div class="lbl">Position</div>
+                    <div class="grid-3">
+                        <div><span class="k">X</span><span class="v" id="posX">0.00</span></div>
+                        <div><span class="k">Y</span><span class="v" id="posY">0.00</span></div>
+                        <div><span class="k">Z</span><span class="v" id="posZ">0.00</span></div>
+                    </div>
+                </div>
+
+                <div class="kpi block">
+                    <div class="lbl">Velocity vector</div>
+                    <div class="grid-3">
+                        <div><span class="k">vx</span><span class="v" id="vx">0.00</span></div>
+                        <div><span class="k">vy</span><span class="v" id="vy">0.00</span></div>
+                        <div><span class="k">vz</span><span class="v" id="vz">0.00</span></div>
+                    </div>
+                </div>
+
+                <div class="kpi block session">
+                    <div class="lbl">Session</div>
+                    <div class="grid-3">
+                        <div><span class="k">Avg</span><span class="v" id="avgSpeed">0.00</span></div>
+                        <div><span class="k">Samples</span><span class="v" id="samples">0</span></div>
+                        <div><span class="k">Uptime</span><span class="v" id="uptime">0s</span></div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <section class="footer-grid">
+            <div class="panel">
+                <div class="panel-head">
+                    <h3>Manual control</h3>
+                    <span class="hint" id="manualStatus">disabled</span>
+                </div>
+                <div class="limits">
+                    <label>Max speed
+                        <input type="number" id="maxSpeed" value="50" step="5" min="0" max="100" onchange="updateMaxValues()">
+                    </label>
+                    <label>Max steering
+                        <input type="number" id="maxSteering" value="10" step="5" min="0" max="75" onchange="updateMaxValues()">
+                    </label>
+                </div>
+                <button id="manualBtn" onclick="toggleManualMode()">Enable manual control</button>
+                <div class="hotkeys">↑ ↓ throttle &nbsp; ← → steer</div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-head"><h3>Tests</h3></div>
+                <div class="tests">
+                    <div class="test-row">
+                        <span class="t-name">Straight</span>
+                        <input type="number" id="speed1" placeholder="speed" step="0.1" value="1.0">
+                        <span class="t-spacer"></span>
+                        <button class="ghost" onclick="runTest(1)">Run</button>
+                    </div>
+                    <div class="test-row">
+                        <span class="t-name">Turn</span>
+                        <input type="number" id="speed2" placeholder="speed" step="0.1" value="1.0">
+                        <input type="number" id="steering2" placeholder="steer" step="0.1" value="0.5">
+                        <button class="ghost" onclick="runTest(2)">Run</button>
+                    </div>
+                    <div class="test-row">
+                        <span class="t-name">Figure 8</span>
+                        <input type="number" id="speed3" placeholder="speed" step="0.1" value="1.0">
+                        <input type="number" id="steering3" placeholder="steer" step="0.1" value="0.5">
+                        <button class="ghost" onclick="runTest(3)">Run</button>
+                    </div>
+                </div>
+                <button class="ghost full" onclick="getLogs()">Download telemetry</button>
+            </div>
+
+            <div class="panel console-panel">
+                <div class="panel-head">
+                    <h3>Event log</h3>
+                    <span class="hint" id="logCount">0</span>
+                </div>
+                <div id="consoleLog" class="console">
+                    <div class="log-entry info"><span class="log-timestamp">[init]</span> awaiting telemetry…</div>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script src="scripts.js"></script>
