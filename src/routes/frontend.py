@@ -1,12 +1,16 @@
 import os
+import socket
 from pathlib import Path
 import requests
+import urllib3.util.connection as urllib3_conn
 
 from flask import Blueprint, send_from_directory, request, jsonify
 
+# Force IPv4 — phone hotspot NAT64 misroutes IPv6 to carrier's network
+urllib3_conn.allowed_gai_family = lambda: socket.AF_INET
+
 # Kart API configuration
 KART_API_BASE = "http://100.93.187.32:8000"
-
 frontend = Blueprint(
     "frontend",
     __name__,
@@ -34,7 +38,7 @@ def root():
 @frontend.route("/api/get_state", methods=["GET"])
 def proxy_get_state():
     try:
-        response = requests.get(f"{KART_API_BASE}/get_state", timeout=2)
+        response = requests.get(f"{KART_API_BASE}/get_state", timeout=5)
         return response.json(), response.status_code
     except Exception as e:
         return {"error": str(e)}, 500
@@ -44,18 +48,21 @@ def proxy_get_state():
 def proxy_set_state():
     try:
         data = request.get_json()
-        response = requests.post(f"{KART_API_BASE}/set_state", json=data, timeout=2)
+        response = requests.post(f"{KART_API_BASE}/set_state", json=data, timeout=5)
         return response.json(), response.status_code
     except Exception as e:
+        print(f"[set_state] {type(e).__name__}: {e}")
         return {"error": str(e)}, 500
 
 
 @frontend.route("/api/odom", methods=["GET"])
 def proxy_odom():
     try:
-        response = requests.get(f"{KART_API_BASE}/odom", timeout=2)
+        response = requests.get(f"{KART_API_BASE}/odom", timeout=5)
         return response.json(), response.status_code
     except Exception as e:
+        print(f"[proxy_odom] {type(e).__name__}: {e}")
+        return {"error": f"{type(e).__name__}: {e}"}, 500
         return {"error": str(e)}, 500
 
 
@@ -63,7 +70,7 @@ def proxy_odom():
 def proxy_manual_control():
     try:
         data = request.get_json()
-        response = requests.post(f"{KART_API_BASE}/manual_control", json=data, timeout=2)
+        response = requests.post(f"{KART_API_BASE}/manual_control", json=data, timeout=5)
         return response.json(), response.status_code
     except Exception as e:
         return {"error": str(e)}, 500
