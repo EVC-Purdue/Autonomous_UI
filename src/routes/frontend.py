@@ -110,3 +110,12 @@ def proxy_racing_line():
         return response.json(), response.status_code
     except Exception as e:
         return {"error": str(e)}, 500
+
+
+@frontend.route("/api/e_comms", methods=["GET"])
+def proxy_e_comms():
+    try:
+        response = requests.get(f"{KART_API_BASE}/e_comms", timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500

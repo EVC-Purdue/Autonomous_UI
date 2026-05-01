@@ -10,8 +10,10 @@ let MAX_STEERING = 10.0;
 
 const TELEMETRY_RATE_MS = 100;   // /odom + /get_state at 10 Hz
 const LINES_RATE_MS = 250;       // /lines at 4 Hz
+const ECOMMS_RATE_MS = 200;      // /e_comms at 5 Hz
 let telemetryInterval = null;
 let linesInterval = null;
+let ecommsInterval = null;
 let isConnected = false;
 let consecutiveErrors = 0;
 const MAX_CONSOLE_ENTRIES = 60;
@@ -507,6 +509,51 @@ function applyDynamic(_rawPts) {
     // varies and odom is already the live ground truth.
 }
 
+function setEcommsStale(stale, statusText, statusClass) {
+    const panel = document.getElementById('ecommsPanel');
+    if (panel) panel.classList.toggle('stale', !!stale);
+    const statusEl = document.getElementById('ecommsStatus');
+    if (statusEl) {
+        statusEl.textContent = statusText;
+        statusEl.className = `ecomms-status ${statusClass}`;
+    }
+}
+
+async function updateEcomms() {
+    try {
+        const r = await fetch(`${API_BASE}/e_comms`);
+        if (!r.ok) {
+            setEcommsStale(true, `err ${r.status}`, 'err');
+            return;
+        }
+        const d = await r.json();
+        if (d && d.error) {
+            setEcommsStale(true, 'no data', 'err');
+            return;
+        }
+        const adcb = (d.adcb_state ?? '').toString();
+        const rc = !!d.rc_mode;
+        const thr = Number(d.throttle_pwm ?? 0);
+        const ste = Number(d.steering_pwm ?? 0);
+
+        setText('ecommsAdcb', adcb || '—');
+        const rcEl = document.getElementById('ecommsRc');
+        if (rcEl) {
+            rcEl.textContent = rc ? 'ON' : 'OFF';
+            rcEl.className = `ecomms-val ${rc ? 'bool-on' : 'bool-off'}`;
+        }
+        setText('ecommsThrottle', String(thr));
+        setText('ecommsSteering', String(ste));
+
+        // No callbacks have fired if everything is at default values.
+        const hasData = adcb !== '' || rc || thr !== 0 || ste !== 0;
+        if (hasData) setEcommsStale(false, 'live', 'live');
+        else setEcommsStale(true, 'no data', 'err');
+    } catch (e) {
+        setEcommsStale(true, 'offline', 'err');
+    }
+}
+
 async function updateTelemetry() {
     try {
         const [stateRes, odomRes] = await Promise.all([
@@ -799,6 +846,10 @@ function startTelemetry() {
     }
     if (!linesInterval) {
         linesInterval = setInterval(fetchLines, LINES_RATE_MS);
+    }
+    if (!ecommsInterval) {
+        updateEcomms();
+        ecommsInterval = setInterval(updateEcomms, ECOMMS_RATE_MS);
     }
 }
 

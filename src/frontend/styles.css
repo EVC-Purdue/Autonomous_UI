@@ -293,6 +293,71 @@ body::before {
 .metrics::-webkit-scrollbar { width: 6px; }
 .metrics::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
 
+.ecomms-panel {
+    background: linear-gradient(180deg, rgba(69, 216, 195, 0.10), var(--panel));
+    border: 1px solid var(--cool-soft);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    box-shadow: 0 0 18px var(--cool-glow);
+    transition: background .3s ease, border-color .3s ease, box-shadow .3s ease;
+}
+.ecomms-panel.stale {
+    background: linear-gradient(180deg, rgba(255, 80, 80, 0.18), rgba(60, 20, 22, 0.55));
+    border-color: rgba(255, 90, 90, 0.55);
+    box-shadow: 0 0 18px rgba(255, 80, 80, 0.18);
+}
+.ecomms-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+}
+.ecomms-title {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--cool);
+    font-weight: 600;
+}
+.ecomms-status {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+.ecomms-status.live { color: var(--cool); }
+.ecomms-status.err  { color: var(--hot); }
+.ecomms-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.ecomms-cell {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+}
+.ecomms-lbl {
+    font-family: var(--font-display);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+    margin-bottom: 4px;
+}
+.ecomms-val {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--cool);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    word-break: break-word;
+}
+.ecomms-val.bool-on  { color: var(--cool); }
+.ecomms-val.bool-off { color: var(--text-dim); }
+
 .hero-metric {
     background: linear-gradient(180deg, var(--panel-2), var(--panel));
     border: 1px solid var(--line);
