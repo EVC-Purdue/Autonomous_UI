@@ -376,6 +376,58 @@ function drawDynamic(g, layer) {
     g.restore();
 }
 
+// 2σ ellipse from the xy block of pose_cov (row-major 6x6: var(x)=0, cov(xy)=1, var(y)=7).
+function drawPoseCovariance(g) {
+    const o = world.odom;
+    if (!o || !Array.isArray(o.pose_cov) || o.pose_cov.length < 8) return;
+    const a = +o.pose_cov[0];
+    const b = +o.pose_cov[1];
+    const c = +o.pose_cov[7];
+    if (!isFinite(a) || !isFinite(b) || !isFinite(c)) return;
+    if (a <= 0 && c <= 0) return;
+
+    // Eigenvalues of [[a,b],[b,c]].
+    const tr = a + c;
+    const det = a * c - b * b;
+    const disc = Math.max(0, (tr * tr) / 4 - det);
+    const root = Math.sqrt(disc);
+    const l1 = tr / 2 + root;   // larger
+    const l2 = tr / 2 - root;   // smaller
+    if (l1 <= 0) return;
+
+    // Major-axis angle in world frame. Eigenvector for l1: (b, l1 - a).
+    let angle;
+    if (Math.abs(b) > 1e-12) angle = Math.atan2(l1 - a, b);
+    else angle = a >= c ? 0 : Math.PI / 2;
+
+    const K = 2.0; // 2σ — covers ~86% of position mass for a 2D Gaussian
+    const rxWorld = K * Math.sqrt(Math.max(0, l1));
+    const ryWorld = K * Math.sqrt(Math.max(0, Math.max(l2, 0)));
+    const rxPx = rxWorld * view.scale;
+    const ryPx = ryWorld * view.scale;
+
+    // Hide when the ellipse would sit inside the vehicle dot.
+    const DOT_R = 5;
+    if (Math.max(rxPx, ryPx) < DOT_R + 1.5) return;
+
+    const [sx, sy] = w2s(o.x, o.y);
+    g.save();
+    g.translate(sx, sy);
+    // Canvas y is flipped relative to world y, so negate the world angle.
+    g.rotate(-angle);
+    g.beginPath();
+    g.ellipse(0, 0, Math.max(2, rxPx), Math.max(1, ryPx), 0, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    g.fill();
+    g.setLineDash([5, 4]);
+    g.lineWidth = 1.25;
+    g.shadowColor = 'rgba(255, 255, 255, 0.35)';
+    g.shadowBlur = 6;
+    g.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+    g.stroke();
+    g.restore();
+}
+
 function drawVehicle(g) {
     const o = world.odom;
     if (!o) return;
@@ -459,6 +511,7 @@ function render() {
     drawStatic(g);
     drawDynamic(g, 'current'); // current lap glows over static
     drawCteIndicator(g);
+    drawPoseCovariance(g);
     drawVehicle(g);
     drawScaleBar();
     requestAnimationFrame(render);
