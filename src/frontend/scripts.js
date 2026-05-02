@@ -11,9 +11,14 @@ let MAX_STEERING = 10.0;
 const TELEMETRY_RATE_MS = 100;   // /odom + /get_state at 10 Hz
 const LINES_RATE_MS = 250;       // /lines at 4 Hz
 const ECOMMS_RATE_MS = 200;      // /e_comms at 5 Hz
+const IMU_RATE_MS = 500;         // /imu/status at 2 Hz, bumps to 4 Hz while CALIBRATING
+const IMU_FAST_RATE_MS = 250;
 let telemetryInterval = null;
 let linesInterval = null;
 let ecommsInterval = null;
+let imuInterval = null;
+let imuPollMs = IMU_RATE_MS;
+let imuLastErrorShown = '';
 let isConnected = false;
 let consecutiveErrors = 0;
 const MAX_CONSOLE_ENTRIES = 60;
@@ -607,6 +612,106 @@ async function updateEcomms() {
     }
 }
 
+function applyImuStatus(d) {
+    const panel = document.getElementById('imuPanel');
+    const stateEl = document.getElementById('imuState');
+    const btn = document.getElementById('imuCalibrateBtn');
+    if (!panel || !stateEl) return;
+
+    const rawState = (d && typeof d.state === 'string') ? d.state : 'unknown';
+    const state = ['WAITING', 'CALIBRATING', 'CALIBRATED'].includes(rawState) ? rawState : 'unknown';
+    stateEl.textContent = state;
+    stateEl.className = `imu-state ${state}`;
+    panel.classList.remove('calibrating', 'calibrated', 'unknown');
+    if (state === 'CALIBRATING') panel.classList.add('calibrating');
+    else if (state === 'CALIBRATED') panel.classList.add('calibrated');
+    else if (state === 'unknown') panel.classList.add('unknown');
+
+    const samples = Number(d?.samples ?? 0);
+    const target = Number(d?.target_samples ?? 0);
+    setText('imuSamples', String(samples | 0));
+    setText('imuTargetSamples', String(target | 0));
+    const fill = document.getElementById('imuProgressFill');
+    if (fill) {
+        const pct = target > 0 ? Math.max(0, Math.min(100, (samples / target) * 100)) : 0;
+        fill.style.width = `${pct.toFixed(1)}%`;
+    }
+
+    const bias = Array.isArray(d?.gyro_bias) ? d.gyro_bias : [];
+    const fmtBias = v => isFinite(v) ? Number(v).toExponential(2) : '—';
+    setText('imuGyroX', fmtBias(bias[0]));
+    setText('imuGyroY', fmtBias(bias[1]));
+    setText('imuGyroZ', fmtBias(bias[2]));
+
+    const errEl = document.getElementById('imuError');
+    const lastError = (d?.last_error ?? '').toString();
+    if (errEl) {
+        if (lastError) {
+            errEl.textContent = lastError;
+            errEl.hidden = false;
+        } else {
+            errEl.textContent = '';
+            errEl.hidden = true;
+        }
+    }
+    if (lastError && lastError !== imuLastErrorShown && lastError !== 'triggered') {
+        logToConsole(`IMU · ${lastError}`, 'error');
+    }
+    imuLastErrorShown = lastError;
+
+    // Button reflects whether a calibration is currently running.
+    if (btn) {
+        if (state === 'CALIBRATING') {
+            btn.textContent = `Calibrating · ${samples}/${target || '?'}`;
+            btn.classList.add('busy');
+            btn.disabled = true;
+        } else {
+            btn.textContent = state === 'CALIBRATED' ? 'Recalibrate' : 'Calibrate';
+            btn.classList.remove('busy');
+            btn.disabled = false;
+        }
+    }
+
+    // Poll faster while calibration is in progress so the bar feels live.
+    const desired = state === 'CALIBRATING' ? IMU_FAST_RATE_MS : IMU_RATE_MS;
+    if (desired !== imuPollMs && imuInterval) {
+        clearInterval(imuInterval);
+        imuPollMs = desired;
+        imuInterval = setInterval(updateImuStatus, imuPollMs);
+    }
+}
+
+async function updateImuStatus() {
+    try {
+        const r = await fetch(`${API_BASE}/imu/status`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d && d.error) return;
+        applyImuStatus(d);
+    } catch (_) { /* silent in poll */ }
+}
+
+async function triggerImuCalibration() {
+    const btn = document.getElementById('imuCalibrateBtn');
+    if (btn?.disabled) return;
+    logToConsole('IMU calibration · triggered', 'info');
+    if (btn) { btn.disabled = true; btn.textContent = 'Triggering…'; }
+    try {
+        const r = await fetch(`${API_BASE}/imu/calibrate`, { method: 'POST' });
+        if (!r.ok) {
+            const txt = await r.text();
+            setStatus(`IMU calibrate failed: ${txt}`, true);
+            if (btn) { btn.disabled = false; btn.textContent = 'Calibrate'; }
+            return;
+        }
+        // Pull fresh status immediately so the UI reflects the new state.
+        updateImuStatus();
+    } catch (e) {
+        setStatus(`IMU calibrate error: ${e.message}`, true);
+        if (btn) { btn.disabled = false; btn.textContent = 'Calibrate'; }
+    }
+}
+
 async function updateTelemetry() {
     try {
         const [stateRes, odomRes] = await Promise.all([
@@ -903,6 +1008,10 @@ function startTelemetry() {
     if (!ecommsInterval) {
         updateEcomms();
         ecommsInterval = setInterval(updateEcomms, ECOMMS_RATE_MS);
+    }
+    if (!imuInterval) {
+        updateImuStatus();
+        imuInterval = setInterval(updateImuStatus, imuPollMs);
     }
 }
 

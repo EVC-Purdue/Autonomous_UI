@@ -358,6 +358,146 @@ body::before {
 .ecomms-val.bool-on  { color: var(--cool); }
 .ecomms-val.bool-off { color: var(--text-dim); }
 
+/* ---------- IMU panel ---------- */
+.imu-panel {
+    background: linear-gradient(180deg, rgba(245, 185, 66, 0.08), var(--panel));
+    border: 1px solid rgba(245, 185, 66, 0.35);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    box-shadow: 0 0 18px var(--amber-glow);
+    display: flex; flex-direction: column; gap: 10px;
+    transition: background .3s ease, border-color .3s ease, box-shadow .3s ease;
+}
+.imu-panel.calibrating {
+    background: linear-gradient(180deg, rgba(110,196,255,0.10), var(--panel));
+    border-color: rgba(110,196,255,0.5);
+    box-shadow: 0 0 18px rgba(110,196,255,0.18);
+}
+.imu-panel.calibrated {
+    background: linear-gradient(180deg, rgba(108,224,133,0.10), var(--panel));
+    border-color: rgba(108,224,133,0.45);
+    box-shadow: 0 0 18px rgba(108,224,133,0.18);
+}
+.imu-panel.unknown {
+    background: var(--panel);
+    border-color: var(--line);
+    box-shadow: none;
+}
+.imu-head {
+    display: flex; align-items: center; justify-content: space-between;
+}
+.imu-title {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--amber);
+    font-weight: 600;
+}
+.imu-state {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 3px 8px;
+    border-radius: 100px;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    background: var(--panel-2);
+}
+.imu-state.WAITING     { color: var(--text-dim); border-color: var(--line); }
+.imu-state.CALIBRATING { color: #6ec4ff; border-color: rgba(110,196,255,0.5); background: rgba(110,196,255,0.08); }
+.imu-state.CALIBRATED  { color: var(--ok);    border-color: rgba(108,224,133,0.5); background: rgba(108,224,133,0.08); }
+.imu-state.unknown     { color: var(--text-mute); }
+
+.imu-btn {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    background: var(--amber);
+    color: #131418;
+    border: 1px solid var(--amber);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all .15s;
+}
+.imu-btn:hover { background: var(--amber-2); box-shadow: 0 0 0 3px var(--amber-glow); }
+.imu-btn:disabled {
+    background: var(--panel-2); color: var(--text-mute);
+    border-color: var(--line); cursor: not-allowed; box-shadow: none;
+}
+.imu-btn.busy {
+    background: rgba(110,196,255,0.15);
+    color: #6ec4ff;
+    border-color: rgba(110,196,255,0.5);
+}
+
+.imu-progress { display: none; flex-direction: column; gap: 6px; }
+.imu-panel.calibrating .imu-progress { display: flex; }
+.imu-progress-head {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-mute);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.imu-progress-head span:last-child { color: #6ec4ff; }
+.imu-progress-bar {
+    height: 3px;
+    background: var(--line-soft);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.imu-progress-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #6ec4ff, var(--cool));
+    box-shadow: 0 0 8px rgba(110,196,255,0.6);
+    transition: width .2s ease;
+}
+
+.imu-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+.imu-cell {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+}
+.imu-lbl {
+    font-family: var(--font-display);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+    margin-bottom: 2px;
+}
+.imu-val {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+
+.imu-error {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--danger);
+    background: rgba(255, 77, 77, 0.08);
+    border: 1px solid rgba(255, 77, 77, 0.35);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    word-break: break-word;
+}
+
 .hero-metric {
     background: linear-gradient(180deg, var(--panel-2), var(--panel));
     border: 1px solid var(--line);

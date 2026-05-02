@@ -129,6 +129,36 @@
                     </div>
                 </div>
 
+                <div class="imu-panel" id="imuPanel">
+                    <div class="imu-head">
+                        <span class="imu-title">IMU</span>
+                        <span class="imu-state" id="imuState">unknown</span>
+                    </div>
+                    <button class="imu-btn" id="imuCalibrateBtn" onclick="triggerImuCalibration()">Calibrate</button>
+                    <div class="imu-progress" id="imuProgress">
+                        <div class="imu-progress-head">
+                            <span>samples</span>
+                            <span><span id="imuSamples">0</span> / <span id="imuTargetSamples">0</span></span>
+                        </div>
+                        <div class="imu-progress-bar"><div class="imu-progress-fill" id="imuProgressFill"></div></div>
+                    </div>
+                    <div class="imu-grid">
+                        <div class="imu-cell">
+                            <div class="imu-lbl">gyro x</div>
+                            <div class="imu-val" id="imuGyroX">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">gyro y</div>
+                            <div class="imu-val" id="imuGyroY">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">gyro z</div>
+                            <div class="imu-val" id="imuGyroZ">—</div>
+                        </div>
+                    </div>
+                    <div class="imu-error" id="imuError" hidden></div>
+                </div>
+
                 <div class="kpi block">
                     <div class="lbl">Position</div>
                     <div class="grid-3">

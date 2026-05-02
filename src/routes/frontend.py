@@ -119,3 +119,21 @@ def proxy_e_comms():
         return response.json(), response.status_code
     except Exception as e:
         return {"error": str(e)}, 500
+
+
+@frontend.route("/api/imu/status", methods=["GET"])
+def proxy_imu_status():
+    try:
+        response = requests.get(f"{KART_API_BASE}/imu/status", timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/imu/calibrate", methods=["POST"])
+def proxy_imu_calibrate():
+    try:
+        response = requests.post(f"{KART_API_BASE}/imu/calibrate", timeout=5)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
