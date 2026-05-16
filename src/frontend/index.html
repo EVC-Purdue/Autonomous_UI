@@ -134,7 +134,10 @@
                         <span class="imu-title">IMU</span>
                         <span class="imu-state" id="imuState">unknown</span>
                     </div>
-                    <button class="imu-btn" id="imuCalibrateBtn" onclick="triggerImuCalibration()">Calibrate</button>
+                    <div class="imu-btn-row">
+                        <button class="imu-btn" id="imuCalibrateBtn" onclick="triggerImuCalibration()">Calibrate</button>
+                        <button class="imu-btn imu-btn-secondary" id="imuYawBtn" onclick="triggerImuYawCalibration()" disabled>Calibrate yaw</button>
+                    </div>
                     <div class="imu-progress" id="imuProgress">
                         <div class="imu-progress-head">
                             <span>samples</span>
@@ -142,21 +145,205 @@
                         </div>
                         <div class="imu-progress-bar"><div class="imu-progress-fill" id="imuProgressFill"></div></div>
                     </div>
+                    <div class="imu-section-lbl">gyro bias</div>
                     <div class="imu-grid">
                         <div class="imu-cell">
-                            <div class="imu-lbl">gyro x</div>
+                            <div class="imu-lbl">bias x</div>
                             <div class="imu-val" id="imuGyroX">—</div>
                         </div>
                         <div class="imu-cell">
-                            <div class="imu-lbl">gyro y</div>
+                            <div class="imu-lbl">bias y</div>
                             <div class="imu-val" id="imuGyroY">—</div>
                         </div>
                         <div class="imu-cell">
-                            <div class="imu-lbl">gyro z</div>
+                            <div class="imu-lbl">bias z</div>
                             <div class="imu-val" id="imuGyroZ">—</div>
                         </div>
                     </div>
+
+                    <div class="imu-section-lbl">
+                        <span>live readings</span>
+                        <span class="imu-stamp" id="imuStamp">no data</span>
+                    </div>
+                    <div class="imu-grid">
+                        <div class="imu-cell">
+                            <div class="imu-lbl">accel x</div>
+                            <div class="imu-val" id="imuAx">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">accel y</div>
+                            <div class="imu-val" id="imuAy">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">accel z</div>
+                            <div class="imu-val" id="imuAz">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">gyro x</div>
+                            <div class="imu-val" id="imuGx">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">gyro y</div>
+                            <div class="imu-val" id="imuGy">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">gyro z</div>
+                            <div class="imu-val" id="imuGz">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">roll</div>
+                            <div class="imu-val" id="imuRoll">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">pitch</div>
+                            <div class="imu-val" id="imuPitch">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">yaw</div>
+                            <div class="imu-val" id="imuYaw">—</div>
+                        </div>
+                    </div>
+
                     <div class="imu-error" id="imuError" hidden></div>
+                </div>
+
+                <div class="gps-panel" id="gpsPanel">
+                    <div class="gps-head">
+                        <span class="gps-title">GPS</span>
+                    </div>
+                    <div class="gps-hero" id="gpsHero">
+                        <div class="gps-hero-label" id="gpsFix">NO DATA</div>
+                        <div class="gps-hero-sub" id="gpsFixSub">awaiting fix…</div>
+                    </div>
+                    <div class="imu-grid">
+                        <div class="imu-cell">
+                            <div class="imu-lbl">sats</div>
+                            <div class="imu-val" id="gpsSats">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">HDOP</div>
+                            <div class="imu-val" id="gpsHdop">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">alt</div>
+                            <div class="imu-val" id="gpsAlt">—</div>
+                        </div>
+                    </div>
+                    <div class="imu-section-lbl">position σ (m)</div>
+                    <div class="imu-grid">
+                        <div class="imu-cell">
+                            <div class="imu-lbl">σ east</div>
+                            <div class="imu-val" id="gpsSigE">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">σ north</div>
+                            <div class="imu-val" id="gpsSigN">—</div>
+                        </div>
+                        <div class="imu-cell">
+                            <div class="imu-lbl">σ up</div>
+                            <div class="imu-val" id="gpsSigU">—</div>
+                        </div>
+                    </div>
+                    <div class="imu-section-lbl">
+                        <span>RTCM corrections</span>
+                        <span class="imu-stamp" id="gpsRtcmStamp">no link</span>
+                    </div>
+                    <div class="gps-coords">
+                        <div><span class="k">lat</span><span class="v" id="gpsLat">—</span></div>
+                        <div><span class="k">lon</span><span class="v" id="gpsLon">—</span></div>
+                    </div>
+                </div>
+
+                <div class="mpc-panel empty" id="mpcPanel">
+                    <div class="mpc-head">
+                        <span class="mpc-title">MPC</span>
+                        <span class="mpc-mode idle" id="mpcMode">idle</span>
+                    </div>
+                    <div class="mpc-hero">
+                        <div class="mpc-hero-lbl">cost total</div>
+                        <div class="mpc-hero-val" id="mpcCostTotal">—</div>
+                        <div class="mpc-hero-sub"><span id="mpcSolveMs">—</span> ms · <span id="mpcSuccess">—</span></div>
+                    </div>
+                    <div class="imu-grid">
+                        <div class="imu-cell"><div class="imu-lbl">d</div><div class="imu-val" id="mpcD">—</div></div>
+                        <div class="imu-cell"><div class="imu-lbl">v</div><div class="imu-val" id="mpcV">—</div></div>
+                        <div class="imu-cell"><div class="imu-lbl">v tgt</div><div class="imu-val" id="mpcVTgt">—</div></div>
+                        <div class="imu-cell"><div class="imu-lbl">δ cmd</div><div class="imu-val" id="mpcDelta">—</div></div>
+                        <div class="imu-cell"><div class="imu-lbl">accel</div><div class="imu-val" id="mpcAccel">—</div></div>
+                        <div class="imu-cell"><div class="imu-lbl">margin</div><div class="imu-val" id="mpcMargin">—</div></div>
+                    </div>
+                    <div class="imu-section-lbl">
+                        <span>cost breakdown</span>
+                        <span class="imu-stamp" id="mpcSamples">n=0</span>
+                    </div>
+                    <div class="mpc-costs">
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">d</span><span class="mpc-cost-val" id="mpcCostD">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">heading</span><span class="mpc-cost-val" id="mpcCostHeading">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">speed</span><span class="mpc-cost-val" id="mpcCostSpeed">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">δ</span><span class="mpc-cost-val" id="mpcCostDelta">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">δ rate</span><span class="mpc-cost-val" id="mpcCostDrate">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">accel</span><span class="mpc-cost-val" id="mpcCostAccel">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">bound</span><span class="mpc-cost-val" id="mpcCostBoundary">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">progr</span><span class="mpc-cost-val" id="mpcCostProgress">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">term d</span><span class="mpc-cost-val" id="mpcCostTermD">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">term ψ</span><span class="mpc-cost-val" id="mpcCostTermH">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">a_lat</span><span class="mpc-cost-val" id="mpcCostALat">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">edge</span><span class="mpc-cost-val" id="mpcCostEdge">—</span></div>
+                    </div>
+
+                    <div class="imu-section-lbl">
+                        <span>residual learner</span>
+                        <span class="mpc-mode idle" id="resMode">OFF</span>
+                    </div>
+                    <div class="imu-grid">
+                        <div class="imu-cell"><div class="imu-lbl">samples</div><div class="imu-val" id="resSamples">—</div></div>
+                        <div class="imu-cell"><div class="imu-lbl">||θ_s||</div><div class="imu-val" id="resThetaS">—</div></div>
+                        <div class="imu-cell"><div class="imu-lbl">||θ_d||</div><div class="imu-val" id="resThetaD">—</div></div>
+                    </div>
+                    <div class="mpc-costs">
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">ds nom</span><span class="mpc-cost-val" id="resDsNom">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">ds res</span><span class="mpc-cost-val" id="resDsRes">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">dd nom</span><span class="mpc-cost-val" id="resDdNom">—</span></div>
+                        <div class="mpc-cost"><span class="mpc-cost-lbl">dd res</span><span class="mpc-cost-val" id="resDdRes">—</span></div>
+                    </div>
+                    <div class="mpc-chart-row">
+                        <div class="mpc-chart-lbl"><span>ds error</span><span class="mpc-chart-legend"><i class="dot dot-nom"></i>nom<i class="dot dot-res"></i>res</span></div>
+                        <canvas id="resChartS" class="mpc-chart" width="320" height="48"></canvas>
+                        <div class="mpc-chart-lbl"><span>dd error</span></div>
+                        <canvas id="resChartD" class="mpc-chart" width="320" height="48"></canvas>
+                    </div>
+
+                    <div class="mpc-btn-row">
+                        <button id="resBtnOff"    onclick="setResidualMode('off')">OFF</button>
+                        <button id="resBtnShadow" onclick="setResidualMode('shadow')">SHADOW</button>
+                        <button id="resBtnApply"  onclick="setResidualMode('apply')">APPLY</button>
+                    </div>
+
+                    <div class="imu-section-lbl"><span>planner</span></div>
+                    <div class="mpc-btn-row">
+                        <button id="planBtnPp"  title="pure_pursuit" onclick="setPlanner('pure_pursuit')">PP</button>
+                        <button id="planBtnMpc" title="mpc"          onclick="setPlanner('mpc')">MPC</button>
+                        <button id="planBtnCv"  title="opencv"       onclick="setPlanner('opencv')">CV</button>
+                    </div>
+
+                    <div class="imu-section-lbl"><span>racing line</span></div>
+                    <div class="mpc-line-row">
+                        <select id="lineSelect">
+                            <option value="/ws/data/racing_line/line2.csv">line2.csv</option>
+                            <option value="/ws/data/racing_line/line4.csv">line4.csv</option>
+                            <option value="/ws/data/racing_line/line6.csv">line6.csv</option>
+                            <option value="/ws/data/racing_line/line8.csv">line8.csv</option>
+                            <option value="/ws/data/racing_line/line10.csv">line10.csv</option>
+                            <option value="/ws/data/racing_line/line12.csv">line12.csv</option>
+                            <option value="/ws/data/racing_line/line14.csv">line14.csv</option>
+                            <option value="/ws/data/racing_line/line15.csv">line15.csv</option>
+                            <option value="/ws/data/racing_line/line16.csv">line16.csv</option>
+                        </select>
+                        <input id="lineInput" type="text" placeholder="/ws/data/racing_line/...">
+                        <button id="lineLoad" onclick="loadLine()">Load</button>
+                    </div>
+                    <div id="lineStatus" class="mpc-line-status"></div>
+                    <div class="mpc-hint">Line swap rebuilds planners; residual θ is preserved.</div>
                 </div>
 
                 <div class="kpi block">
@@ -203,7 +390,7 @@
                     </label>
                 </div>
                 <button id="manualBtn" onclick="toggleManualMode()">Enable manual control</button>
-                <div class="hotkeys">↑ ↓ throttle &nbsp; ← → steer</div>
+                <div class="hotkeys">W / ↑ throttle &nbsp; A D / ← → steer</div>
             </div>
 
             <div class="panel">

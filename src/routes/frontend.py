@@ -63,7 +63,6 @@ def proxy_odom():
     except Exception as e:
         print(f"[proxy_odom] {type(e).__name__}: {e}")
         return {"error": f"{type(e).__name__}: {e}"}, 500
-        return {"error": str(e)}, 500
 
 
 @frontend.route("/api/manual_control", methods=["POST"])
@@ -130,10 +129,76 @@ def proxy_imu_status():
         return {"error": str(e)}, 500
 
 
+@frontend.route("/api/imu", methods=["GET"])
+def proxy_imu():
+    try:
+        response = requests.get(f"{KART_API_BASE}/imu", timeout=2)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @frontend.route("/api/imu/calibrate", methods=["POST"])
 def proxy_imu_calibrate():
     try:
         response = requests.post(f"{KART_API_BASE}/imu/calibrate", timeout=5)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/imu/calibrate_yaw", methods=["POST"])
+def proxy_imu_calibrate_yaw():
+    try:
+        response = requests.post(f"{KART_API_BASE}/imu/calibrate_yaw", timeout=5)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/gps", methods=["GET"])
+def proxy_gps():
+    try:
+        response = requests.get(f"{KART_API_BASE}/gps", timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/mpc_status", methods=["GET"])
+def proxy_mpc_status():
+    try:
+        response = requests.get(f"{KART_API_BASE}/mpc_status", timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/mpc/residual_mode", methods=["POST"])
+def proxy_residual_mode():
+    try:
+        data = request.get_json()
+        response = requests.post(f"{KART_API_BASE}/mpc/residual_mode", json=data, timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/pathfinder/planner", methods=["POST"])
+def proxy_pathfinder_planner():
+    try:
+        data = request.get_json()
+        response = requests.post(f"{KART_API_BASE}/pathfinder/planner", json=data, timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/pathfinder/line_path", methods=["POST"])
+def proxy_pathfinder_line_path():
+    try:
+        data = request.get_json()
+        response = requests.post(f"{KART_API_BASE}/pathfinder/line_path", json=data, timeout=5)
         return response.json(), response.status_code
     except Exception as e:
         return {"error": str(e)}, 500

@@ -13,12 +13,24 @@ const LINES_RATE_MS = 250;       // /lines at 4 Hz
 const ECOMMS_RATE_MS = 200;      // /e_comms at 5 Hz
 const IMU_RATE_MS = 500;         // /imu/status at 2 Hz, bumps to 4 Hz while CALIBRATING
 const IMU_FAST_RATE_MS = 250;
+const IMU_LIVE_RATE_MS = 100;    // /imu live readings at 10 Hz
+const GPS_RATE_MS = 500;         // /gps at 2 Hz
+const MPC_RATE_MS = 100;         // /mpc_status at 10 Hz
 let telemetryInterval = null;
 let linesInterval = null;
 let ecommsInterval = null;
 let imuInterval = null;
+let imuLiveInterval = null;
+let gpsInterval = null;
+let mpcInterval = null;
 let imuPollMs = IMU_RATE_MS;
 let imuLastErrorShown = '';
+let imuLastStampNs = null;        // last stamp_ns value seen
+let imuLastStampChangeAt = 0;     // performance.now() when stamp_ns last changed
+let imuCalState = 'unknown';      // mirrors /imu/status.state — drives yaw-btn gating
+let kartState = 'UNKNOWN';        // mirrors /get_state.state — drives yaw-btn gating
+let yawCalBusyUntil = 0;          // performance.now() ts that yaw cal is expected to finish
+const YAW_CAL_DURATION_MS = 6000; // 5 s drive + a buffer for state settle
 let isConnected = false;
 let consecutiveErrors = 0;
 const MAX_CONSOLE_ENTRIES = 60;
@@ -31,6 +43,7 @@ const world = {
     staticCumLen: [],
     dynamicPath: [],
     dynamicLen: 0,
+    rejoinPath: [],    // bezier the MPC is tracking during rejoin (/lines.dynamic when active)
     odom: null,
 };
 
@@ -474,6 +487,25 @@ function drawVehicle(g) {
     g.beginPath(); g.arc(sx, sy, 5, 0, Math.PI*2); g.stroke();
 }
 
+function drawRejoin(g) {
+    const pts = world.rejoinPath;
+    if (!pts || pts.length < 2) return;
+    g.save();
+    g.lineWidth = 2;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.strokeStyle = 'rgba(178, 132, 255, 0.95)';
+    g.shadowColor = 'rgba(178, 132, 255, 0.6)';
+    g.shadowBlur = 10;
+    g.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+        const [sx, sy] = w2s(pts[i][0], pts[i][1]);
+        if (i === 0) g.moveTo(sx, sy); else g.lineTo(sx, sy);
+    }
+    g.stroke();
+    g.restore();
+}
+
 function drawCteIndicator(g) {
     const o = world.odom;
     if (!o || world.staticPath.length < 2) return;
@@ -514,6 +546,7 @@ function render() {
     drawGrid(g);
     drawDynamic(g, 'old');     // older laps fade in beneath static
     drawStatic(g);
+    drawRejoin(g);             // MPC rejoin bezier overlays static when active
     drawDynamic(g, 'current'); // current lap glows over static
     drawCteIndicator(g);
     drawPoseCovariance(g);
@@ -561,10 +594,16 @@ async function fetchLines() {
     } catch (e) { /* silent in poll */ }
 }
 
-function applyDynamic(_rawPts) {
+function applyDynamic(rawDyn) {
     // The driven line is rendered from the odom-derived trail (driven.trail),
-    // which world.dynamicPath aliases. /lines.dynamic is ignored — its shape
-    // varies and odom is already the live ground truth.
+    // which world.dynamicPath aliases. /lines.dynamic now carries the bezier
+    // the MPC is tracking during a rejoin — render that as an overlay when
+    // active, separately from the driven trail.
+    if (rawDyn && typeof rawDyn === 'object' && rawDyn.active && Array.isArray(rawDyn.points)) {
+        world.rejoinPath = normalizeXY(rawDyn.points);
+    } else {
+        world.rejoinPath = [];
+    }
 }
 
 function setEcommsStale(stale, statusText, statusClass) {
@@ -620,6 +659,7 @@ function applyImuStatus(d) {
 
     const rawState = (d && typeof d.state === 'string') ? d.state : 'unknown';
     const state = ['WAITING', 'CALIBRATING', 'CALIBRATED'].includes(rawState) ? rawState : 'unknown';
+    imuCalState = state;
     stateEl.textContent = state;
     stateEl.className = `imu-state ${state}`;
     panel.classList.remove('calibrating', 'calibrated', 'unknown');
@@ -671,6 +711,7 @@ function applyImuStatus(d) {
             btn.disabled = false;
         }
     }
+    updateYawCalBtn();
 
     // Poll faster while calibration is in progress so the bar feels live.
     const desired = state === 'CALIBRATING' ? IMU_FAST_RATE_MS : IMU_RATE_MS;
@@ -689,6 +730,114 @@ async function updateImuStatus() {
         if (d && d.error) return;
         applyImuStatus(d);
     } catch (_) { /* silent in poll */ }
+}
+
+function applyImu(d) {
+    const fmt = (v, digits = 3) => isFinite(v) ? Number(v).toFixed(digits) : '—';
+    const stampEl = document.getElementById('imuStamp');
+
+    const stampNs = Number(d?.stamp_ns ?? 0);
+    const now = performance.now();
+    if (stampNs !== imuLastStampNs) {
+        imuLastStampNs = stampNs;
+        imuLastStampChangeAt = now;
+    }
+
+    if (!stampNs) {
+        if (stampEl) { stampEl.textContent = 'no data'; stampEl.className = 'imu-stamp'; }
+    } else {
+        const ageMs = Math.max(0, now - imuLastStampChangeAt);
+        const label = ageMs < 1000 ? `${ageMs.toFixed(0)} ms` : `${(ageMs / 1000).toFixed(1)} s`;
+        if (stampEl) {
+            stampEl.textContent = label;
+            stampEl.className = 'imu-stamp ' + (ageMs < 500 ? 'live' : ageMs < 2000 ? 'stale' : 'err');
+        }
+    }
+
+    setText('imuAx', fmt(d?.ax));
+    setText('imuAy', fmt(d?.ay));
+    setText('imuAz', fmt(d?.az));
+    setText('imuGx', fmt(d?.gx));
+    setText('imuGy', fmt(d?.gy));
+    setText('imuGz', fmt(d?.gz));
+
+    // Quaternion → roll/pitch/yaw (degrees, ZYX intrinsic / aerospace).
+    const qx = Number(d?.qx ?? 0), qy = Number(d?.qy ?? 0);
+    const qz = Number(d?.qz ?? 0), qw = Number(d?.qw ?? 0);
+    const norm = Math.hypot(qx, qy, qz, qw);
+    if (stampNs && norm > 1e-6) {
+        const nx = qx / norm, ny = qy / norm, nz = qz / norm, nw = qw / norm;
+        const sinp = 2 * (nw * ny - nz * nx);
+        const pitch = Math.asin(Math.max(-1, Math.min(1, sinp)));
+        const roll = Math.atan2(2 * (nw * nx + ny * nz), 1 - 2 * (nx * nx + ny * ny));
+        const yaw = Math.atan2(2 * (nw * nz + nx * ny), 1 - 2 * (ny * ny + nz * nz));
+        const deg = r => (r * 180 / Math.PI).toFixed(1) + '°';
+        setText('imuRoll', deg(roll));
+        setText('imuPitch', deg(pitch));
+        setText('imuYaw', deg(yaw));
+    } else {
+        setText('imuRoll', '—');
+        setText('imuPitch', '—');
+        setText('imuYaw', '—');
+    }
+}
+
+async function updateImu() {
+    try {
+        const r = await fetch(`${API_BASE}/imu`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d && d.error) return;
+        applyImu(d);
+    } catch (_) { /* silent in poll */ }
+}
+
+function updateYawCalBtn() {
+    const btn = document.getElementById('imuYawBtn');
+    if (!btn) return;
+    const now = performance.now();
+    const busy = now < yawCalBusyUntil;
+    if (busy) {
+        const remaining = Math.max(0, (yawCalBusyUntil - now) / 1000);
+        btn.textContent = `Yaw · ${remaining.toFixed(1)}s`;
+        btn.classList.add('busy');
+        btn.disabled = true;
+        return;
+    }
+    btn.classList.remove('busy');
+    const canRun = imuCalState === 'CALIBRATED' && (kartState === 'IDLE' || kartState === 'STOPPED');
+    btn.disabled = !canRun;
+    btn.textContent = 'Calibrate yaw';
+}
+
+async function triggerImuYawCalibration() {
+    const btn = document.getElementById('imuYawBtn');
+    if (btn?.disabled) return;
+    logToConsole('IMU yaw calibration · triggered', 'info');
+    if (btn) { btn.disabled = true; btn.textContent = 'Triggering…'; }
+    try {
+        const r = await fetch(`${API_BASE}/imu/calibrate_yaw`, { method: 'POST' });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) {
+            const reason = body?.error || `HTTP ${r.status}`;
+            setStatus(`Yaw cal rejected: ${reason}`, true);
+            updateYawCalBtn();
+            return;
+        }
+        yawCalBusyUntil = performance.now() + YAW_CAL_DURATION_MS;
+        updateYawCalBtn();
+        // Ticker so the countdown updates between IMU polls.
+        const tick = setInterval(() => {
+            updateYawCalBtn();
+            if (performance.now() >= yawCalBusyUntil) {
+                clearInterval(tick);
+                updateImuStatus();
+            }
+        }, 250);
+    } catch (e) {
+        setStatus(`Yaw cal error: ${e.message}`, true);
+        updateYawCalBtn();
+    }
 }
 
 async function triggerImuCalibration() {
@@ -710,6 +859,292 @@ async function triggerImuCalibration() {
         setStatus(`IMU calibrate error: ${e.message}`, true);
         if (btn) { btn.disabled = false; btn.textContent = 'Calibrate'; }
     }
+}
+
+function applyGps(d) {
+    const hero = document.getElementById('gpsHero');
+    const fixEl = document.getElementById('gpsFix');
+    const subEl = document.getElementById('gpsFixSub');
+    const stampEl = document.getElementById('gpsRtcmStamp');
+    const fmt = (v, digits) => isFinite(v) ? Number(v).toFixed(digits) : '—';
+
+    const noData = !d || d.error || d.state === 'unknown' || !('fix_quality' in d);
+    if (noData) {
+        if (hero) hero.className = 'gps-hero';
+        if (fixEl) fixEl.textContent = 'NO DATA';
+        if (subEl) subEl.textContent = 'awaiting fix…';
+        ['gpsSats','gpsHdop','gpsAlt','gpsSigE','gpsSigN','gpsSigU','gpsLat','gpsLon'].forEach(id => setText(id, '—'));
+        if (stampEl) { stampEl.textContent = 'no link'; stampEl.className = 'imu-stamp'; }
+        return;
+    }
+
+    const fixQ = Number(d.fix_quality ?? 0) | 0;
+    const fixLabel = (d.fix_label || (fixQ === 0 ? 'NO_FIX' : `FIX_${fixQ}`)).toString();
+    let fixClass = 'fix-ok';
+    if (fixQ === 0) fixClass = 'no-fix';
+    else if (fixQ === 4) fixClass = 'rtk-fixed';
+    else if (fixQ === 5) fixClass = 'rtk-float';
+    if (hero) hero.className = `gps-hero ${fixClass}`;
+    if (fixEl) fixEl.textContent = fixLabel.replace(/_/g, ' ');
+
+    const sats = Number(d.num_satellites ?? 0) | 0;
+    const hdop = isFinite(d.hdop) ? Number(d.hdop).toFixed(1) : '—';
+    if (subEl) subEl.textContent = `${sats} sats · HDOP ${hdop}`;
+
+    setText('gpsSats', String(sats));
+    setText('gpsHdop', fmt(d.hdop, 1));
+    setText('gpsAlt', isFinite(d.altitude) ? `${Number(d.altitude).toFixed(1)} m` : '—');
+    setText('gpsSigE', fmt(d.sigma_e, 2));
+    setText('gpsSigN', fmt(d.sigma_n, 2));
+    setText('gpsSigU', fmt(d.sigma_u, 2));
+    setText('gpsLat', isFinite(d.lat) ? Number(d.lat).toFixed(7) : '—');
+    setText('gpsLon', isFinite(d.lon) ? Number(d.lon).toFixed(7) : '—');
+
+    // RTCM stream — show bytes transferred and age of last byte.
+    const bytesTotal = Number(d.rtcm_bytes_total ?? 0);
+    const ageRaw = d.rtcm_last_age_s;
+    const ageS = (ageRaw === null || ageRaw === undefined) ? null : Number(ageRaw);
+    if (stampEl) {
+        if (bytesTotal <= 0 || ageS === null || !isFinite(ageS)) {
+            stampEl.textContent = 'no link';
+            stampEl.className = 'imu-stamp err';
+        } else {
+            const kb = bytesTotal / 1024;
+            const sizeLbl = kb >= 1024 ? `${(kb/1024).toFixed(1)} MB` : `${kb.toFixed(1)} KB`;
+            const ageLbl = ageS < 1 ? `${(ageS*1000).toFixed(0)} ms` : `${ageS.toFixed(1)} s`;
+            stampEl.textContent = `${sizeLbl} · ${ageLbl}`;
+            stampEl.className = 'imu-stamp ' + (ageS < 2 ? 'live' : ageS < 10 ? 'stale' : 'err');
+        }
+    }
+}
+
+async function updateGps() {
+    try {
+        const r = await fetch(`${API_BASE}/gps`);
+        if (!r.ok) return;
+        const d = await r.json();
+        applyGps(d);
+    } catch (_) { /* silent in poll */ }
+}
+
+function applyMpc(d) {
+    const panel = document.getElementById('mpcPanel');
+    if (!panel) return;
+    const received = !!(d && d.received);
+    // Idle ticks at 10 Hz — once cells already read "—", skip the 25 writes.
+    if (!received && panel.classList.contains('empty')) return;
+    const mode = Number(d?.mode ?? 0) | 0;
+    panel.classList.toggle('empty', !received);
+    panel.classList.toggle('failsafe', received && mode === 2);
+
+    const modeEl = document.getElementById('mpcMode');
+    if (modeEl) {
+        if (!received) {
+            modeEl.textContent = 'idle';
+            modeEl.className = 'mpc-mode idle';
+        } else if (mode === 1) {
+            modeEl.textContent = 'normal';
+            modeEl.className = 'mpc-mode normal';
+        } else if (mode === 2) {
+            modeEl.textContent = 'failsafe';
+            modeEl.className = 'mpc-mode failsafe';
+        } else {
+            modeEl.textContent = `mode ${mode}`;
+            modeEl.className = 'mpc-mode';
+        }
+    }
+
+    const fmt = (v, n = 2) => isFinite(v) ? Number(v).toFixed(n) : '—';
+    setText('mpcCostTotal', received ? fmt(d.cost_total, 2) : '—');
+    setText('mpcSolveMs', received ? fmt(d.solve_ms, 1) : '—');
+    const okEl = document.getElementById('mpcSuccess');
+    if (okEl) okEl.textContent = received ? (d.success ? 'ok' : 'fail') : '—';
+
+    setText('mpcD', fmt(d?.d, 3));
+    setText('mpcV', fmt(d?.v, 2));
+    setText('mpcVTgt', fmt(d?.v_target, 2));
+    setText('mpcDelta', fmt(d?.delta_cmd_deg, 1));
+    setText('mpcAccel', fmt(d?.accel_cmd, 2));
+    setText('mpcMargin', fmt(d?.margin_min, 2));
+    setText('mpcSamples', `n=${(d?.samples_trained ?? 0) | 0}`);
+
+    const c = d?.costs || {};
+    setText('mpcCostD', fmt(c.d));
+    setText('mpcCostHeading', fmt(c.heading));
+    setText('mpcCostSpeed', fmt(c.speed));
+    setText('mpcCostDelta', fmt(c.delta));
+    setText('mpcCostDrate', fmt(c.drate));
+    setText('mpcCostAccel', fmt(c.accel));
+    setText('mpcCostBoundary', fmt(c.boundary));
+    setText('mpcCostProgress', fmt(c.progress));
+    setText('mpcCostTermD', fmt(c.terminal_d));
+    setText('mpcCostTermH', fmt(c.terminal_heading));
+    setText('mpcCostALat', fmt(c.a_lat));
+    setText('mpcCostEdge', fmt(c.edge));
+
+    const resModeEl = document.getElementById('resMode');
+    const resModeNum = Number(d?.residual_mode_num ?? 0) | 0;
+    const resLabel = resModeNum === 2 ? 'APPLY' : resModeNum === 1 ? 'SHADOW' : 'OFF';
+    if (resModeEl) {
+        resModeEl.textContent = resLabel;
+        resModeEl.className = 'mpc-mode ' + (resModeNum === 2 ? 'normal' : resModeNum === 1 ? 'idle' : 'idle');
+    }
+    for (const [id, key] of [['resBtnOff','off'], ['resBtnShadow','shadow'], ['resBtnApply','apply']]) {
+        const b = document.getElementById(id);
+        if (b) b.classList.toggle('active', key === resLabel.toLowerCase());
+    }
+
+    setText('resSamples', String((d?.samples_trained ?? 0) | 0));
+    setText('resThetaS', fmt(d?.theta_s_norm, 2));
+    setText('resThetaD', fmt(d?.theta_d_norm, 2));
+
+    const nomS = Number(d?.nom_s);
+    const nomD = Number(d?.nom_d);
+    const resS = Number(d?.res_es);
+    const resD = Number(d?.res_ed);
+    setText('resDsNom', fmt(nomS, 3));
+    setText('resDdNom', fmt(nomD, 3));
+    const dsRes = document.getElementById('resDsRes');
+    if (dsRes) {
+        dsRes.textContent = fmt(resS, 3);
+        dsRes.className = 'mpc-cost-val ' + (isFinite(resS) && isFinite(nomS) ? (resS < nomS ? 'err-better' : resS > nomS ? 'err-worse' : '') : '');
+    }
+    const ddRes = document.getElementById('resDdRes');
+    if (ddRes) {
+        ddRes.textContent = fmt(resD, 3);
+        ddRes.className = 'mpc-cost-val ' + (isFinite(resD) && isFinite(nomD) ? (resD < nomD ? 'err-better' : resD > nomD ? 'err-worse' : '') : '');
+    }
+
+    if (received) {
+        pushResHist('nomS', nomS);
+        pushResHist('resS', resS);
+        pushResHist('nomD', nomD);
+        pushResHist('resD', resD);
+    }
+    drawResChart('resChartS', resHistory.nomS, resHistory.resS);
+    drawResChart('resChartD', resHistory.nomD, resHistory.resD);
+}
+
+const RES_CHART_MAX = 300;   // 30 s of history at the 10 Hz /mpc_status poll
+const resHistory = { nomS: [], resS: [], nomD: [], resD: [] };
+
+function pushResHist(key, v) {
+    const arr = resHistory[key];
+    arr.push(isFinite(v) ? +v : 0);
+    if (arr.length > RES_CHART_MAX) arr.shift();
+}
+
+function drawResChart(id, nomArr, resArr) {
+    const cv = document.getElementById(id);
+    if (!cv) return;
+    const cx = cv.getContext('2d');
+    const w = cv.width, h = cv.height;
+    cx.clearRect(0, 0, w, h);
+    if (nomArr.length < 2 && resArr.length < 2) return;
+    let mx = 0;
+    for (const v of nomArr) if (v > mx) mx = v;
+    for (const v of resArr) if (v > mx) mx = v;
+    if (mx < 1e-9) mx = 1;
+    drawSeries(cx, nomArr, w, h, mx, 'rgba(139, 143, 154, 0.7)', 1);
+    drawSeries(cx, resArr, w, h, mx, 'rgba(69, 216, 195, 0.95)', 1.5);
+}
+
+function drawSeries(cx, arr, w, h, mx, color, lw) {
+    if (arr.length < 2) return;
+    cx.beginPath();
+    cx.strokeStyle = color;
+    cx.lineWidth = lw;
+    const n = arr.length;
+    for (let i = 0; i < n; i++) {
+        const x = (i / Math.max(1, RES_CHART_MAX - 1)) * w;
+        const y = h - 1 - (arr[i] / mx) * (h - 2);
+        if (i === 0) cx.moveTo(x, y); else cx.lineTo(x, y);
+    }
+    cx.stroke();
+}
+
+async function postControl(path, body, btn, label) {
+    try {
+        const r = await fetch(`${API_BASE}${path}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+        return data;
+    } catch (e) {
+        console.error(`${label} failed`, e);
+        if (btn) {
+            btn.classList.add('flash');
+            setTimeout(() => btn.classList.remove('flash'), 600);
+        }
+        throw e;
+    }
+}
+
+async function setResidualMode(mode) {
+    const btn = document.getElementById('resBtn' + mode[0].toUpperCase() + mode.slice(1));
+    try {
+        await postControl('/mpc/residual_mode', { mode }, btn, 'setResidualMode');
+        logToConsole(`Residual mode → ${mode}`, 'success');
+    } catch (_) {}
+}
+
+const PLANNER_BTN = { pure_pursuit: 'planBtnPp', mpc: 'planBtnMpc', opencv: 'planBtnCv' };
+async function setPlanner(planner) {
+    const btn = document.getElementById(PLANNER_BTN[planner]);
+    try {
+        const data = await postControl('/pathfinder/planner', { planner }, btn, 'setPlanner');
+        const active = data.planner || planner;
+        for (const [p, id] of Object.entries(PLANNER_BTN)) {
+            const b = document.getElementById(id);
+            if (b) b.classList.toggle('active', p === active);
+        }
+        logToConsole(`Planner → ${active}`, 'success');
+    } catch (_) {}
+}
+
+let lineStatusTimeout = null;
+function showLineStatus(text, kind) {
+    const el = document.getElementById('lineStatus');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'mpc-line-status' + (kind ? ' ' + kind : '');
+    if (lineStatusTimeout) clearTimeout(lineStatusTimeout);
+    lineStatusTimeout = setTimeout(() => {
+        el.textContent = '';
+        el.className = 'mpc-line-status';
+    }, 3000);
+}
+
+async function loadLine() {
+    const input = document.getElementById('lineInput');
+    const select = document.getElementById('lineSelect');
+    const typed = (input?.value || '').trim();
+    const path = typed || select?.value || '';
+    if (!path) { showLineStatus('no path selected', 'err'); return; }
+    try {
+        const data = await postControl('/pathfinder/line_path', { path }, document.getElementById('lineLoad'), 'loadLine');
+        const used = data.path || path;
+        const base = used.split('/').pop();
+        showLineStatus('loaded ' + base, 'ok');
+        // Force a /lines re-fetch so the static path re-adopts against the new CSV.
+        world.staticPath = [];
+        fetchMap();
+    } catch (e) {
+        showLineStatus(String(e.message || e), 'err');
+    }
+}
+
+async function updateMpc() {
+    try {
+        const r = await fetch(`${API_BASE}/mpc_status`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d && d.error) return;
+        applyMpc(d);
+    } catch (_) { /* silent in poll */ }
 }
 
 async function updateTelemetry() {
@@ -840,6 +1275,7 @@ function formatUptime(s) {
 }
 
 function updateStateDisplay(state) {
+    kartState = state;
     const pill = document.getElementById('currentState');
     if (pill) {
         pill.textContent = state;
@@ -850,6 +1286,7 @@ function updateStateDisplay(state) {
     });
     if (state === 'MANUAL') engageManualLocal();
     else disengageManualLocal();
+    updateYawCalBtn();
 }
 
 /* ---------------- Controls ---------------- */
@@ -893,9 +1330,10 @@ function engageManualLocal() {
     const btn = document.getElementById('manualBtn');
     const status = document.getElementById('manualStatus');
     if (btn) { btn.textContent = 'Disable manual control'; btn.classList.add('active'); }
-    if (status) status.textContent = `armed · ↑↓ ±${MAX_SPEED} · ←→ ±${MAX_STEERING}`;
+    if (status) status.textContent = `armed · W/↑↓ ±${MAX_SPEED} · A/D ←→ ±${MAX_STEERING}`;
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
     setStatus('Manual mode armed');
 }
 
@@ -908,6 +1346,7 @@ function disengageManualLocal() {
     if (status) status.textContent = 'disabled';
     document.removeEventListener('keydown', handleKeyDown);
     document.removeEventListener('keyup', handleKeyUp);
+    window.removeEventListener('blur', handleWindowBlur);
     activeKeys.clear();
     stopControlLoop();
     setStatus('Manual mode disabled');
@@ -922,10 +1361,20 @@ async function toggleManualMode() {
     }
 }
 
+// WASD and arrow keys both map to the same four logical controls.
+const MANUAL_KEY_MAP = {
+    'ArrowUp': 'ArrowUp', 'ArrowDown': 'ArrowDown',
+    'ArrowLeft': 'ArrowLeft', 'ArrowRight': 'ArrowRight',
+    'w': 'ArrowUp', 'W': 'ArrowUp',
+    's': 'ArrowDown', 'S': 'ArrowDown',
+    'a': 'ArrowLeft', 'A': 'ArrowLeft',
+    'd': 'ArrowRight', 'D': 'ArrowRight',
+};
+
 function handleKeyDown(e) {
     if (!manualMode) return;
-    const k = e.key;
-    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)) {
+    const k = MANUAL_KEY_MAP[e.key];
+    if (k) {
         e.preventDefault();
         if (!activeKeys.has(k)) {
             activeKeys.add(k);
@@ -935,12 +1384,17 @@ function handleKeyDown(e) {
 }
 async function handleKeyUp(e) {
     if (!manualMode) return;
-    const k = e.key;
-    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)) {
+    const k = MANUAL_KEY_MAP[e.key];
+    if (k) {
         e.preventDefault();
         activeKeys.delete(k);
         if (activeKeys.size === 0) await stopControlLoop();
     }
+}
+async function handleWindowBlur() {
+    if (!manualMode) return;
+    activeKeys.clear();
+    await stopControlLoop();
 }
 function startControlLoop() { controlInterval = setInterval(sendControlCommands, 20); }
 async function stopControlLoop() {
@@ -1012,6 +1466,18 @@ function startTelemetry() {
     if (!imuInterval) {
         updateImuStatus();
         imuInterval = setInterval(updateImuStatus, imuPollMs);
+    }
+    if (!imuLiveInterval) {
+        updateImu();
+        imuLiveInterval = setInterval(updateImu, IMU_LIVE_RATE_MS);
+    }
+    if (!gpsInterval) {
+        updateGps();
+        gpsInterval = setInterval(updateGps, GPS_RATE_MS);
+    }
+    if (!mpcInterval) {
+        updateMpc();
+        mpcInterval = setInterval(updateMpc, MPC_RATE_MS);
     }
 }
 
