@@ -184,6 +184,25 @@ def proxy_residual_mode():
         return {"error": str(e)}, 500
 
 
+@frontend.route("/api/mpc/actuator_gain", methods=["GET"])
+def proxy_actuator_gain_get():
+    try:
+        response = requests.get(f"{KART_API_BASE}/mpc/actuator_gain", timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/mpc/actuator_gain", methods=["POST"])
+def proxy_actuator_gain_post():
+    try:
+        data = request.get_json()
+        response = requests.post(f"{KART_API_BASE}/mpc/actuator_gain", json=data, timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @frontend.route("/api/pathfinder/planner", methods=["POST"])
 def proxy_pathfinder_planner():
     try:

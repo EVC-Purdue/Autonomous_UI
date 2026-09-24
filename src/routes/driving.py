@@ -8,8 +8,7 @@ driving = Blueprint(
     "driving",
     __name__,
 )
-
-URL = "http://100.93.187.32/8000"
+URL = "http://100.93.187.32:8000"
 
 
 @driving.route("/get_data", methods=["GET"])

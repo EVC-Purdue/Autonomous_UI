@@ -16,6 +16,7 @@ const IMU_FAST_RATE_MS = 250;
 const IMU_LIVE_RATE_MS = 100;    // /imu live readings at 10 Hz
 const GPS_RATE_MS = 500;         // /gps at 2 Hz
 const MPC_RATE_MS = 100;         // /mpc_status at 10 Hz
+const ACT_GAIN_RATE_MS = 1000;   // /mpc/actuator_gain at 1 Hz
 let telemetryInterval = null;
 let linesInterval = null;
 let ecommsInterval = null;
@@ -23,6 +24,7 @@ let imuInterval = null;
 let imuLiveInterval = null;
 let gpsInterval = null;
 let mpcInterval = null;
+let actGainInterval = null;
 let imuPollMs = IMU_RATE_MS;
 let imuLastErrorShown = '';
 let imuLastStampNs = null;        // last stamp_ns value seen
@@ -290,6 +292,7 @@ function drawGrid(g) {
 function drawStatic(g) {
     const pts = world.staticPath;
     if (pts.length < 2) return;
+    drawTrackEdges(g, pts);
     g.save();
     g.lineWidth = 1.5;
     g.setLineDash([6, 6]);
@@ -307,6 +310,31 @@ function drawStatic(g) {
     const [sx0, sy0] = w2s(pts[0][0], pts[0][1]);
     g.fillStyle = 'rgba(69, 216, 195, 0.9)';
     g.beginPath(); g.arc(sx0, sy0, 4, 0, Math.PI*2); g.fill();
+}
+
+// Track edges: the racing line offset ±half-width along its normal, matching
+// the MPC corridor (mpc.track_half_width_m in AutonomousKart pathfinder.yaml).
+const TRACK_HALF_WIDTH_M = 2.0;
+
+function drawTrackEdges(g, pts) {
+    const n = pts.length;
+    g.save();
+    g.lineWidth = 1.5;
+    g.strokeStyle = 'rgba(233, 231, 225, 0.35)';
+    for (const side of [1, -1]) {
+        g.beginPath();
+        for (let i = 0; i < n; i++) {
+            const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+            const dx = b[0] - a[0], dy = b[1] - a[1];
+            const len = Math.hypot(dx, dy) || 1;
+            const ox = -dy / len * TRACK_HALF_WIDTH_M * side;
+            const oy =  dx / len * TRACK_HALF_WIDTH_M * side;
+            const [sx, sy] = w2s(pts[i][0] + ox, pts[i][1] + oy);
+            if (i === 0) g.moveTo(sx, sy); else g.lineTo(sx, sy);
+        }
+        g.stroke();
+    }
+    g.restore();
 }
 
 function drawDynamic(g, layer) {
@@ -1063,6 +1091,34 @@ function drawSeries(cx, arr, w, h, mx, color, lw) {
     cx.stroke();
 }
 
+async function updateActuatorGain() {
+    try {
+        const r = await fetch(`${API_BASE}/mpc/actuator_gain`);
+        if (!r.ok) return;
+        const d = await r.json();
+        const fmt = (v, n = 3) => isFinite(v) ? Number(v).toFixed(n) : '—';
+        setText('actGainCurrent', fmt(d?.current_setting));
+        setText('actGainMedian', fmt(d?.estimated_median));
+        setText('actGainSamples', String((d?.n_samples ?? 0) | 0));
+    } catch (_) { /* silent in poll */ }
+}
+
+async function setActuatorGain() {
+    const input = document.getElementById('actGainInput');
+    const btn = document.getElementById('actGainSet');
+    const v = parseFloat(input?.value);
+    if (!isFinite(v) || v <= 0 || v >= 5) {
+        logToConsole(`Actuator gain · invalid value (need 0 < v < 5)`, 'error');
+        if (btn) { btn.classList.add('flash'); setTimeout(() => btn.classList.remove('flash'), 600); }
+        return;
+    }
+    try {
+        const data = await postControl('/mpc/actuator_gain', { value: v }, btn, 'setActuatorGain');
+        logToConsole(`Actuator gain · set to ${data?.value ?? v}`, 'success');
+        updateActuatorGain();
+    } catch (_) { /* postControl already flashed + logged */ }
+}
+
 async function postControl(path, body, btn, label) {
     try {
         const r = await fetch(`${API_BASE}${path}`, {
@@ -1478,6 +1534,10 @@ function startTelemetry() {
     if (!mpcInterval) {
         updateMpc();
         mpcInterval = setInterval(updateMpc, MPC_RATE_MS);
+    }
+    if (!actGainInterval) {
+        updateActuatorGain();
+        actGainInterval = setInterval(updateActuatorGain, ACT_GAIN_RATE_MS);
     }
 }
 

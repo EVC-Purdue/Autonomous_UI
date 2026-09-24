@@ -1011,7 +1011,7 @@ body::before {
 /* ---------- Footer panels ---------- */
 .footer-grid {
     display: grid;
-    grid-template-columns: 320px 1fr 1fr;
+    grid-template-columns: 320px 1fr;
     gap: 12px;
     min-height: 0;
 }
@@ -1142,7 +1142,7 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
 
 @media (max-width: 1280px) {
     .stage { grid-template-columns: 1fr 320px; }
-    .footer-grid { grid-template-columns: 280px 1fr 1fr; }
+    .footer-grid { grid-template-columns: 280px 1fr; }
 }
 @media (max-width: 1024px) {
     .app { grid-template-rows: 56px 1fr auto; height: auto; min-height: 100vh; }

@@ -291,6 +291,17 @@
                         <div class="mpc-cost"><span class="mpc-cost-lbl">edge</span><span class="mpc-cost-val" id="mpcCostEdge">—</span></div>
                     </div>
 
+                    <div class="imu-section-lbl"><span>actuator gain</span></div>
+                    <div class="imu-grid">
+                        <div class="imu-cell"><div class="imu-lbl">current</div><div class="imu-val" id="actGainCurrent">—</div></div>
+                        <div class="imu-cell"><div class="imu-lbl">est median</div><div class="imu-val" id="actGainMedian">—</div></div>
+                        <div class="imu-cell"><div class="imu-lbl">samples</div><div class="imu-val" id="actGainSamples">—</div></div>
+                    </div>
+                    <div class="mpc-line-row">
+                        <input id="actGainInput" type="number" step="0.01" min="0" max="5" placeholder="0 < v < 5">
+                        <button id="actGainSet" onclick="setActuatorGain()">Set</button>
+                    </div>
+
                     <div class="imu-section-lbl">
                         <span>residual learner</span>
                         <span class="mpc-mode idle" id="resMode">OFF</span>
@@ -332,12 +343,20 @@
                             <option value="/ws/data/racing_line/line2.csv">line2.csv</option>
                             <option value="/ws/data/racing_line/line4.csv">line4.csv</option>
                             <option value="/ws/data/racing_line/line6.csv">line6.csv</option>
+                            <option value="/ws/data/racing_line/line7.csv">line7.csv</option>
                             <option value="/ws/data/racing_line/line8.csv">line8.csv</option>
                             <option value="/ws/data/racing_line/line10.csv">line10.csv</option>
                             <option value="/ws/data/racing_line/line12.csv">line12.csv</option>
                             <option value="/ws/data/racing_line/line14.csv">line14.csv</option>
                             <option value="/ws/data/racing_line/line15.csv">line15.csv</option>
                             <option value="/ws/data/racing_line/line16.csv">line16.csv</option>
+                            <option value="/ws/data/racing_line/newline4.csv">newline4.csv</option>
+                            <option value="/ws/data/racing_line/newline5.csv">newline5.csv</option>
+                            <option value="/ws/data/racing_line/newline6.csv">newline6.csv</option>
+                            <option value="/ws/data/racing_line/newline7.csv">newline7.csv</option>
+                            <option value="/ws/data/racing_line/newline8.csv">newline8.csv</option>
+                            <option value="/ws/data/racing_line/newline9.csv">newline9.csv</option>
+                            <option value="/ws/data/racing_line/newline10.csv">newline10.csv</option>
                         </select>
                         <input id="lineInput" type="text" placeholder="/ws/data/racing_line/...">
                         <button id="lineLoad" onclick="loadLine()">Load</button>
@@ -391,31 +410,6 @@
                 </div>
                 <button id="manualBtn" onclick="toggleManualMode()">Enable manual control</button>
                 <div class="hotkeys">W / ↑ throttle &nbsp; A D / ← → steer</div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-head"><h3>Tests</h3></div>
-                <div class="tests">
-                    <div class="test-row">
-                        <span class="t-name">Straight</span>
-                        <input type="number" id="speed1" placeholder="speed" step="0.1" value="1.0">
-                        <span class="t-spacer"></span>
-                        <button class="ghost" onclick="runTest(1)">Run</button>
-                    </div>
-                    <div class="test-row">
-                        <span class="t-name">Turn</span>
-                        <input type="number" id="speed2" placeholder="speed" step="0.1" value="1.0">
-                        <input type="number" id="steering2" placeholder="steer" step="0.1" value="0.5">
-                        <button class="ghost" onclick="runTest(2)">Run</button>
-                    </div>
-                    <div class="test-row">
-                        <span class="t-name">Figure 8</span>
-                        <input type="number" id="speed3" placeholder="speed" step="0.1" value="1.0">
-                        <input type="number" id="steering3" placeholder="steer" step="0.1" value="0.5">
-                        <button class="ghost" onclick="runTest(3)">Run</button>
-                    </div>
-                </div>
-                <button class="ghost full" onclick="getLogs()">Download telemetry</button>
             </div>
 
             <div class="panel console-panel">
