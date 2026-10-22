@@ -339,30 +339,16 @@
 
                     <div class="imu-section-lbl"><span>racing line</span></div>
                     <div class="mpc-line-row">
-                        <select id="lineSelect">
-                            <option value="/ws/data/racing_line/line2.csv">line2.csv</option>
-                            <option value="/ws/data/racing_line/line4.csv">line4.csv</option>
-                            <option value="/ws/data/racing_line/line6.csv">line6.csv</option>
-                            <option value="/ws/data/racing_line/line7.csv">line7.csv</option>
-                            <option value="/ws/data/racing_line/line8.csv">line8.csv</option>
-                            <option value="/ws/data/racing_line/line10.csv">line10.csv</option>
-                            <option value="/ws/data/racing_line/line12.csv">line12.csv</option>
-                            <option value="/ws/data/racing_line/line14.csv">line14.csv</option>
-                            <option value="/ws/data/racing_line/line15.csv">line15.csv</option>
-                            <option value="/ws/data/racing_line/line16.csv">line16.csv</option>
-                            <option value="/ws/data/racing_line/newline4.csv">newline4.csv</option>
-                            <option value="/ws/data/racing_line/newline5.csv">newline5.csv</option>
-                            <option value="/ws/data/racing_line/newline6.csv">newline6.csv</option>
-                            <option value="/ws/data/racing_line/newline7.csv">newline7.csv</option>
-                            <option value="/ws/data/racing_line/newline8.csv">newline8.csv</option>
-                            <option value="/ws/data/racing_line/newline9.csv">newline9.csv</option>
-                            <option value="/ws/data/racing_line/newline10.csv">newline10.csv</option>
-                        </select>
+                        <select id="lineSelect"></select>
                         <input id="lineInput" type="text" placeholder="/ws/data/racing_line/...">
                         <button id="lineLoad" onclick="loadLine()">Load</button>
                     </div>
+                    <div class="imu-grid">
+                        <div class="imu-cell"><div class="imu-lbl">v max</div><input id="lineVmax" type="number" step="0.1" value="10"></div>
+                        <div class="imu-cell"><div class="imu-lbl">v min</div><input id="lineVmin" type="number" step="0.1" value="4"></div>
+                        <div class="imu-cell"><div class="imu-lbl">mult</div><input id="lineMult" type="number" step="0.05" value="1.0"></div>
+                    </div>
                     <div id="lineStatus" class="mpc-line-status"></div>
-                    <div class="mpc-hint">Line swap rebuilds planners; residual θ is preserved.</div>
                 </div>
 
                 <div class="kpi block">

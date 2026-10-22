@@ -46,6 +46,8 @@ const world = {
     dynamicPath: [],
     dynamicLen: 0,
     rejoinPath: [],    // bezier the MPC is tracking during rejoin (/lines.dynamic when active)
+    edgeInner: [],     // surveyed track boundaries from /track_edges, odom xy
+    edgeOuter: [],
     odom: null,
 };
 
@@ -292,7 +294,6 @@ function drawGrid(g) {
 function drawStatic(g) {
     const pts = world.staticPath;
     if (pts.length < 2) return;
-    drawTrackEdges(g, pts);
     g.save();
     g.lineWidth = 1.5;
     g.setLineDash([6, 6]);
@@ -312,24 +313,15 @@ function drawStatic(g) {
     g.beginPath(); g.arc(sx0, sy0, 4, 0, Math.PI*2); g.fill();
 }
 
-// Track edges: the racing line offset ±half-width along its normal, matching
-// the MPC corridor (mpc.track_half_width_m in AutonomousKart pathfinder.yaml).
-const TRACK_HALF_WIDTH_M = 2.0;
-
-function drawTrackEdges(g, pts) {
-    const n = pts.length;
+function drawTrackEdges(g) {
     g.save();
     g.lineWidth = 1.5;
     g.strokeStyle = 'rgba(233, 231, 225, 0.35)';
-    for (const side of [1, -1]) {
+    for (const pts of [world.edgeInner, world.edgeOuter]) {
+        if (pts.length < 2) continue;
         g.beginPath();
-        for (let i = 0; i < n; i++) {
-            const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
-            const dx = b[0] - a[0], dy = b[1] - a[1];
-            const len = Math.hypot(dx, dy) || 1;
-            const ox = -dy / len * TRACK_HALF_WIDTH_M * side;
-            const oy =  dx / len * TRACK_HALF_WIDTH_M * side;
-            const [sx, sy] = w2s(pts[i][0] + ox, pts[i][1] + oy);
+        for (let i = 0; i < pts.length; i++) {
+            const [sx, sy] = w2s(pts[i][0], pts[i][1]);
             if (i === 0) g.moveTo(sx, sy); else g.lineTo(sx, sy);
         }
         g.stroke();
@@ -572,6 +564,7 @@ function render() {
     if (view.mode === 'follow') followView();
     g.clearRect(0, 0, view.w, view.h);
     drawGrid(g);
+    drawTrackEdges(g);
     drawDynamic(g, 'old');     // older laps fade in beneath static
     drawStatic(g);
     drawRejoin(g);             // MPC rejoin bezier overlays static when active
@@ -599,6 +592,8 @@ function adoptStatic(rawStatic) {
 }
 
 async function fetchMap() {
+    fetchTrackEdges();
+    fetchLineShapes();
     try {
         const r = await fetch(`${API_BASE}/lines`);
         if (!r.ok) return;
@@ -610,6 +605,36 @@ async function fetchMap() {
     } catch (e) {
         logToConsole(`Map load failed: ${e.message}`, 'error');
     }
+}
+
+// Fills the racing line dropdown with every CSV the kart has in line_dir.
+async function fetchLineShapes() {
+    try {
+        const r = await fetch(`${API_BASE}/pathfinder/line_shapes`);
+        if (!r.ok) return;
+        const data = await r.json();
+        const select = document.getElementById('lineSelect');
+        if (!select || !Array.isArray(data.shapes)) return;
+        const keep = select.value || data.path;
+        select.innerHTML = '';
+        for (const shape of data.shapes) {
+            const opt = document.createElement('option');
+            opt.value = `${data.line_dir}/${shape}.csv`;
+            opt.textContent = `${shape}.csv`;
+            select.appendChild(opt);
+        }
+        if ([...select.options].some(o => o.value === keep)) select.value = keep;
+    } catch (e) { /* dropdown stays as-is */ }
+}
+
+async function fetchTrackEdges() {
+    try {
+        const r = await fetch(`${API_BASE}/track_edges`);
+        if (!r.ok) return;
+        const data = await r.json();
+        world.edgeInner = normalizeXY(data.inner);
+        world.edgeOuter = normalizeXY(data.outer);
+    } catch (e) { /* edges are optional; map still renders without them */ }
 }
 
 async function fetchLines() {
@@ -1013,9 +1038,10 @@ function applyMpc(d) {
     const resModeEl = document.getElementById('resMode');
     const resModeNum = Number(d?.residual_mode_num ?? 0) | 0;
     const resLabel = resModeNum === 2 ? 'APPLY' : resModeNum === 1 ? 'SHADOW' : 'OFF';
+    const resEffNum = Number(d?.effective_mode ?? resModeNum) | 0;
     if (resModeEl) {
-        resModeEl.textContent = resLabel;
-        resModeEl.className = 'mpc-mode ' + (resModeNum === 2 ? 'normal' : resModeNum === 1 ? 'idle' : 'idle');
+        resModeEl.textContent = resEffNum === 2 ? 'APPLY' : resEffNum === 1 ? 'SHADOW' : 'OFF';
+        resModeEl.className = 'mpc-mode ' + (resEffNum === 2 ? 'normal' : resEffNum === 1 ? 'idle' : 'idle');
     }
     for (const [id, key] of [['resBtnOff','off'], ['resBtnShadow','shadow'], ['resBtnApply','apply']]) {
         const b = document.getElementById(id);
@@ -1180,11 +1206,17 @@ async function loadLine() {
     const typed = (input?.value || '').trim();
     const path = typed || select?.value || '';
     if (!path) { showLineStatus('no path selected', 'err'); return; }
+    // Selected lines go through line_speed so vmax/vmin/mult apply; a typed path is loaded raw.
+    const num = id => parseFloat(document.getElementById(id)?.value);
+    const shape = path.split('/').pop().replace(/\.csv$/, '');
     try {
-        const data = await postControl('/pathfinder/line_path', { path }, document.getElementById('lineLoad'), 'loadLine');
+        const data = typed
+            ? await postControl('/pathfinder/line_path', { path }, document.getElementById('lineLoad'), 'loadLine')
+            : await postControl('/pathfinder/line_speed', { shape, v_max: num('lineVmax'), v_min: num('lineVmin'), v_mult: num('lineMult') }, document.getElementById('lineLoad'), 'loadLine');
         const used = data.path || path;
         const base = used.split('/').pop();
-        showLineStatus('loaded ' + base, 'ok');
+        const sp = data.spec;
+        showLineStatus('loaded ' + base + (sp ? ` · ${sp.v_min}–${sp.v_max} m/s ×${sp.v_mult}` : ''), 'ok');
         // Force a /lines re-fetch so the static path re-adopts against the new CSV.
         world.staticPath = [];
         fetchMap();

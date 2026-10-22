@@ -102,6 +102,15 @@ def proxy_lines():
         return {"error": str(e)}, 500
 
 
+@frontend.route("/api/track_edges", methods=["GET"])
+def proxy_track_edges():
+    try:
+        response = requests.get(f"{KART_API_BASE}/track_edges", timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @frontend.route("/api/racing_line", methods=["GET"])
 def proxy_racing_line():
     try:
@@ -208,6 +217,25 @@ def proxy_pathfinder_planner():
     try:
         data = request.get_json()
         response = requests.post(f"{KART_API_BASE}/pathfinder/planner", json=data, timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/pathfinder/line_shapes", methods=["GET"])
+def proxy_pathfinder_line_shapes():
+    try:
+        response = requests.get(f"{KART_API_BASE}/pathfinder/line_shapes", timeout=3)
+        return response.json(), response.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@frontend.route("/api/pathfinder/line_speed", methods=["POST"])
+def proxy_pathfinder_line_speed():
+    try:
+        data = request.get_json()
+        response = requests.post(f"{KART_API_BASE}/pathfinder/line_speed", json=data, timeout=5)
         return response.json(), response.status_code
     except Exception as e:
         return {"error": str(e)}, 500
